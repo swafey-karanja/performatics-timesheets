@@ -1,7 +1,13 @@
-"use client"
+"use client";
 
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useState } from "react";
+import { X } from "lucide-react";
+import DatePicker from "./formComponents/datePicker";
+import TimeFieldComponent from "./formComponents/timeField";
+import SelectField from "./formComponents/selectField";
+import ReusableSelect from "./formComponents/selectField";
+import { SelectChangeEvent } from "@mui/material/Select";
+import ReusableTextField from "./formComponents/textField";
 
 // Types and Interfaces
 interface FormData {
@@ -21,9 +27,9 @@ interface FormData {
   keyResults: string;
 }
 
-type TaskType = 'Advertisement' | 'Meeting' | 'Research' | 'Other';
-type TaskStation = 'Office' | 'Remote' | 'Field';
-type CompletionStatus = '' | 'Complete' | 'In Progress' | 'Pending';
+type TaskType = "Advertisement" | "Meeting" | "Research" | "Other";
+type TaskStation = "Office" | "Remote" | "Field";
+type CompletionStatus = "" | "Complete" | "In Progress" | "Pending";
 
 interface AddTimesheetModalProps {
   isOpen: boolean;
@@ -31,203 +37,198 @@ interface AddTimesheetModalProps {
 }
 
 // Modal Component
-export const TimesheetModal: React.FC<AddTimesheetModalProps> = ({ isOpen, onClose }) => {
+export const TimesheetModal: React.FC<AddTimesheetModalProps> = ({
+  isOpen,
+  onClose,
+}) => {
   const [formData, setFormData] = useState<FormData>({
-    taskDate: '',
-    startHour: '',
-    startMinute: '',
-    endHour: '',
-    endMinute: '',
-    taskName: '',
-    taskType: 'Advertisement',
-    taskStation: 'Office',
-    individualKPI: '',
-    role: '',
-    programObjectives: 'RS 1. To be the only institution that has an up-to date data for',
-    project: 'ACRC- The city manager & SDI Kenya Action Research & LVCT',
-    completionStatus: '',
-    keyResults: ''
+    taskDate: "",
+    startHour: "",
+    startMinute: "",
+    endHour: "",
+    endMinute: "",
+    taskName: "",
+    taskType: "Advertisement",
+    taskStation: "Office",
+    individualKPI: "",
+    role: "",
+    programObjectives:
+      "RS 1. To be the only institution that has an up-to date data for",
+    project: "ACRC- The city manager & SDI Kenya Action Research & LVCT",
+    completionStatus: "",
+    keyResults: "",
   });
+
+  const [taskStation, setTaskStation] = useState("");
+  const [typeOfTask, setTypeOfStation] = useState("");
+  const [taskCompletionStatus, setTaskCompletionStatus] = useState("");
+  const [project, setProject] = useState("");
+  const [individualKpi, setIndividualKpi] = useState("");
+  const [programObjectives, setProgramObjectives] = useState("");
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
+    console.log("Form submitted:", formData);
     onClose();
   };
 
-  const handleInputChange = <K extends keyof FormData>(field: K, value: FormData[K]): void => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = <K extends keyof FormData>(
+    field: K,
+    value: FormData[K]
+  ): void => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const generateTimeOptions = (max: number): string[] => {
-    return Array.from({ length: max }, (_, i) => i.toString().padStart(2, '0'));
+  const handleChange = (e: SelectChangeEvent) => {
+    setTaskStation(e.target.value);
+    setTypeOfStation(e.target.value);
+    setTaskCompletionStatus(e.target.value);
+    setProject(e.target.value);
+    setIndividualKpi(e.target.value);
+    setProgramObjectives(e.target.value);
   };
 
   return (
-    <div className="fixed inset-0 bg-black opacity-50 flex items-center justify-center z-30">
+    <div className="fixed inset-0 z-50 bg-black/30 bg-opacity-50 backdrop-blur-sm transition-all duration-300 flex items-center justify-center px-2 sm:px-4 py-6 ">
       <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto m-4">
         <div className="sticky top-0 bg-red-600 text-black p-4 flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Add Timesheet Entry</h2>
-          <button onClick={onClose} className="text-white hover:text-gray-200" type="button">
+          <h2 className="text-2xl text-white font-semibold">
+            Add Timesheet Entry
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-white hover:text-gray-200"
+            type="button"
+          >
             <X size={24} />
           </button>
         </div>
-        
+
         <div className="p-6">
           {/* Task Date and Time Row */}
           <div className="grid grid-cols-3 gap-6 mb-6">
             <div>
-              <label className="block text-sm font-medium mb-2 text-black">
-                Task Date <span className="text-red-600">*</span>
+              <label
+                htmlFor="date"
+                className="block text-sm font-semibold text-gray-700 mb-2"
+              >
+                Date <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                placeholder="dd/mm/yyyy"
-                value={formData.taskDate}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('taskDate', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
+              <DatePicker />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium mb-2 text-black">
-                Start Time <span className="text-red-600">*</span>
+              <label
+                htmlFor="start-time"
+                className="block text-sm font-semibold text-gray-700 mb-2"
+              >
+                Start Time <span className="text-red-500">*</span>
               </label>
-              <div className="flex gap-2">
-                <select 
-                  value={formData.startHour}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('startHour', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  <option value="">HH</option>
-                  {generateTimeOptions(24).map((hour) => (
-                    <option key={hour} value={hour}>
-                      {hour}
-                    </option>
-                  ))}
-                </select>
-                <select 
-                  value={formData.startMinute}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('startMinute', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  <option value="">MM</option>
-                  {generateTimeOptions(60).map((minute) => (
-                    <option key={minute} value={minute}>
-                      {minute}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <TimeFieldComponent label="Start time" />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium mb-2 text-black">
-                End Time <span className="text-red-600">*</span>
+              <label
+                htmlFor="end-time"
+                className="block text-sm font-semibold text-gray-700 mb-2"
+              >
+                End Time <span className="text-red-500">*</span>
               </label>
-              <div className="flex gap-2">
-                <select 
-                  value={formData.endHour}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('endHour', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  <option value="">HH</option>
-                  {generateTimeOptions(24).map((hour) => (
-                    <option key={hour} value={hour}>
-                      {hour}
-                    </option>
-                  ))}
-                </select>
-                <select 
-                  value={formData.endMinute}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('endMinute', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  <option value="">MM</option>
-                  {generateTimeOptions(60).map((minute) => (
-                    <option key={minute} value={minute}>
-                      {minute}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <p className="text-sm text-gray-600 mt-1">0 hours worked</p>
+              <TimeFieldComponent label="End time" />
             </div>
           </div>
 
           {/* Name of the Task */}
           <div className="mb-6">
-            <label className="block text-sm font-medium mb-2 text-black">
-              Name of the Task <span className="text-red-600">*</span>
+            <label
+              htmlFor="name-of-task"
+              className="block text-sm font-semibold text-gray-700 mb-2"
+            >
+              Name of Task <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              value={formData.taskName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('taskName', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-            />
+            <ReusableTextField label="Name of Task" width="100%" />
           </div>
 
           {/* Type of task and Task Station */}
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block text-sm font-medium mb-2 text-black">
-                Type of task <span className="text-red-600">*</span>
-              </label>
-              <select 
-                value={formData.taskType}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('taskType', e.target.value as TaskType)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+              <label
+                htmlFor="task-station"
+                className="block text-sm font-semibold text-gray-700 mb-2"
               >
-                <option value="Advertisement">Advertisement</option>
-                <option value="Meeting">Meeting</option>
-                <option value="Research">Research</option>
-                <option value="Other">Other</option>
-              </select>
+                Task Station <span className="text-red-500">*</span>
+              </label>
+              <ReusableSelect
+                label="Task Station"
+                value={taskStation}
+                onChange={handleChange}
+                options={[
+                  { label: "None", value: "" },
+                  { label: "Office", value: "Office" },
+                  { label: "Remote", value: "Remote" },
+                  { label: "Field", value: "Field" },
+                ]}
+              />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium mb-2 text-black">
-                Task Station <span className="text-red-600">*</span>
-              </label>
-              <select 
-                value={formData.taskStation}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('taskStation', e.target.value as TaskStation)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+              <label
+                htmlFor="task-station"
+                className="block text-sm font-semibold text-gray-700 mb-2"
               >
-                <option value="Office">Office</option>
-                <option value="Remote">Remote</option>
-                <option value="Field">Field</option>
-              </select>
+                Type of Task <span className="text-red-500">*</span>
+              </label>
+              <ReusableSelect
+                label="Type of task"
+                value={typeOfTask}
+                onChange={handleChange}
+                options={[
+                  { label: "None", value: "" },
+                  { label: "Office", value: "Office" },
+                  { label: "Remote", value: "Remote" },
+                  { label: "Field", value: "Field" },
+                ]}
+              />
             </div>
           </div>
 
           {/* Individual KPI and Role */}
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block text-sm font-medium mb-2 text-black">
-                Individual KPI -
-              </label>
-              <select 
-                value={formData.individualKPI}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('individualKPI', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+              <label
+                htmlFor="individual-kpis"
+                className="block text-sm font-semibold text-gray-700 mb-2"
               >
-                <option value="">- Fill Out Other Fields -</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-2 text-black">
-                Role (Where applicable)
+                Individual KPIs<span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                value={formData.role}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('role', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+              <ReusableSelect
+                label="Individual KPIs"
+                value={individualKpi}
+                onChange={handleChange}
+                options={[
+                  { label: "None", value: "" },
+                  {
+                    label: "- Fill Out Other Fields -",
+                    value: "- Fill Out Other Fields -",
+                  },
+                ]}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="role"
+                className="block text-sm font-semibold text-gray-700 mb-2"
+              >
+                Role (Where Applicable)
+              </label>
+              <ReusableTextField
+                label="Role"
+                width="100%"
+                multiline
+                maxRows={1}
               />
             </div>
           </div>
@@ -235,63 +236,86 @@ export const TimesheetModal: React.FC<AddTimesheetModalProps> = ({ isOpen, onClo
           {/* Program Objectives and Project */}
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block text-sm font-medium mb-2 text-black">
-                Program Objectives
-              </label>
-              <select 
-                value={formData.programObjectives}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('programObjectives', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+              <label
+                htmlFor="individual-kpis"
+                className="block text-sm font-semibold text-gray-700 mb-2"
               >
-                <option value="RS 1. To be the only institution that has an up-to date data for">
-                  RS 1. To be the only institution that has an up-to date data for
-                </option>
-              </select>
+                Program Objectives<span className="text-red-500">*</span>
+              </label>
+              <ReusableSelect
+                label="Program Objectives"
+                value={programObjectives}
+                onChange={handleChange}
+                options={[
+                  { label: "None", value: "" },
+                  {
+                    label:
+                      "RS 1. To be the only institution that has an up-to date data",
+                    value:
+                      "RS 1. To be the only institution that has an up-to date data",
+                  },
+                ]}
+              />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium mb-2 text-black">
-                Project
-              </label>
-              <select 
-                value={formData.project}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('project', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+              <label
+                htmlFor="project"
+                className="block text-sm font-semibold text-gray-700 mb-2"
               >
-                <option value="ACRC- The city manager & SDI Kenya Action Research & LVCT">
-                  ACRC- The city manager & SDI Kenya Action Research & LVCT
-                </option>
-              </select>
+                Project<span className="text-red-500">*</span>
+              </label>
+              <ReusableSelect
+                label="Project"
+                value={project}
+                onChange={handleChange}
+                options={[
+                  { label: "None", value: "" },
+                  {
+                    label:
+                      "ACRC- The city manager & SDI Kenya Action Research & LVCT",
+                    value:
+                      "ACRC- The city manager & SDI Kenya Action Research & LVCT",
+                  },
+                ]}
+              />
             </div>
           </div>
 
           {/* Task completion status and Key Results */}
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block text-sm font-medium mb-2 text-black">
-                Task completion status <span className="text-red-600">*</span>
-              </label>
-              <select 
-                value={formData.completionStatus}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('completionStatus', e.target.value as CompletionStatus)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+              <label
+                htmlFor="task-completion-status"
+                className="block text-sm font-semibold text-gray-700 mb-2"
               >
-                <option value="">Select status</option>
-                <option value="Complete">Complete</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Pending">Pending</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-2 text-black">
-                Key Results <span className="text-red-600">*</span>
+                Task Completion Status <span className="text-red-500">*</span>
               </label>
-              <textarea
-                rows={4}
-                value={formData.keyResults}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('keyResults', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+              <ReusableSelect
+                label="Task Completion Status"
+                value={taskCompletionStatus}
+                onChange={handleChange}
+                options={[
+                  { label: "None", value: "" },
+                  { label: "Complete", value: "Complete" },
+                  { label: "In Progress", value: "In Progress" },
+                  { label: "Pending", value: "Pending" },
+                ]}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="key-results"
+                className="block text-sm font-semibold text-gray-700 mb-2"
+              >
+                Key Results<span className="text-red-500">*</span>
+              </label>
+              <ReusableTextField
+                label="Key Results"
+                width="100%"
+                minRows={5}
+                multiline
               />
             </div>
           </div>
