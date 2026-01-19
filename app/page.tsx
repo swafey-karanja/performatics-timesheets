@@ -1,12 +1,11 @@
-import React from 'react'
-import { TimesheetsPage } from './timesheets'
+import BasicModal from "@/components/Modal";
 
 const page = () => {
   return (
-    <>
-      <TimesheetsPage />
-    </>
-  )
-}
+    <div className="flex justify-center items-center h-screen">
+      <BasicModal />
+    </div>
+  );
+};
 
-export default page
+export default page;
