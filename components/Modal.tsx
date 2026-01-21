@@ -26,6 +26,7 @@ import {
   TaskType,
 } from "@/types/types";
 import { useClientProjects } from "@/hooks/useClientProjects";
+import { useClientProjectsMock } from "@/hooks/useClientProjectsMock";
 
 const style = {
   position: "absolute",
@@ -182,14 +183,13 @@ export default function BasicModal({
   };
 
   // Use props if provided, otherwise use hardcoded values
-  const cookie = defaultCookie;
+  // const cookie = defaultCookie;
   const basePayload = propBasePayload || defaultBasePayload;
   const client = "iGaming Afrika";
 
-  const { projects, isLoading, error } = useClientProjects(
+  const { projects, isLoading, error } = useClientProjectsMock(
     client,
     basePayload,
-    cookie,
   );
 
   console.log({ projects });
@@ -546,8 +546,12 @@ export default function BasicModal({
               >
                 Project <span className="text-red-500">*</span>
               </label>
-              <FormControl required sx={{ m: 1, minWidth: "100%" }}>
+              <FormControl
+                required
+                sx={{ m: 1, maxWidth: "100%", minWidth: "100%" }}
+              >
                 <InputLabel id="project-label">Project</InputLabel>
+
                 <Select
                   labelId="project-label"
                   id="project"
@@ -555,14 +559,34 @@ export default function BasicModal({
                   label="Project *"
                   onChange={handleProjectChange}
                   disabled={isSubmitting}
+                  renderValue={(selected) => (
+                    <span
+                      style={{
+                        display: "block",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {selected}
+                    </span>
+                  )}
                 >
-                  <MenuItem value="">
-                    <em>None</em>
-                  </MenuItem>
-                  <MenuItem value="engineering">Engineering</MenuItem>
-                  <MenuItem value="sales">Sales</MenuItem>
-                  <MenuItem value="operations">Operations</MenuItem>
+                  {projects.map((project) => (
+                    <MenuItem
+                      key={project}
+                      value={project}
+                      sx={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {project}
+                    </MenuItem>
+                  ))}
                 </Select>
+
                 <FormHelperText>Required</FormHelperText>
               </FormControl>
             </div>

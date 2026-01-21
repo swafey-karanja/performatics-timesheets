@@ -30,9 +30,9 @@ export const fetchClientProjects = async (
     "https://mediaforce.cloud/wp-admin/admin-ajax.php?action=gppa_get_batch_field_html",
     {
       method: "POST",
+      credentials: "include", // 👈 REQUIRED
       headers: {
         "Content-Type": "application/json",
-        Cookie: cookie, // API requires authentication via cookie
       },
       body: JSON.stringify(payload),
     },
