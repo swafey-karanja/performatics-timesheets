@@ -1,30 +1,11 @@
 // Define the union type
-export type TaskType =
-  | "creative"
-  | "project management"
-  | "accounts & finance"
-  | "admin"
-  | "admin meeting"
-  | "client service"
-  | "discovery meeting"
-  | "business development meeting"
-  | "project meeting"
-  | "procurement"
-  | "HR"
-  | "proposal development"
-  | "report writing"
-  | "report review"
-  | "presentation development";
+export type TaskType = string;
 
-export type Department =
-  | "board"
-  | "business development"
-  | "design, branding & printing"
-  | "events management & PR"
-  | "finance, HR, procurement & admin"
-  | "marketing & advertising"
-  | "video production, animation & photography"
-  | "web & digital solutions";
+export type Department = string;
+
+export type StrategicPillar = string;
+
+export type Client = string;
 
 // export an array of all type options for mapping
 export const TASK_OPTIONS: TaskType[] = [
@@ -43,6 +24,16 @@ export const TASK_OPTIONS: TaskType[] = [
   "report writing",
   "report review",
   "presentation development",
+];
+
+export const STRATEGIC_PILLARS: StrategicPillar[] = [
+  "startegic partnerships",
+  "innovation & digital transformation",
+  "community involvement & CSR",
+  "thought leadership",
+  "business development",
+  "service excellence and service delivery",
+  "growth and profitability",
 ];
 
 export const DEPARTMENT_OPTIONS: Department[] = [
@@ -79,3 +70,9 @@ export interface ApiResponse {
 
 // For SWR, the projects we extract are just strings
 export type ProjectType = string[];
+
+export interface TaskDescrioptionEditorProps {
+  taskDescription: string;
+  setTaskDescription: (value: string) => void;
+  isSubmitting: boolean;
+}

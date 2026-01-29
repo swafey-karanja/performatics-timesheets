@@ -19,13 +19,16 @@ import { MobileTimePicker } from "@mui/x-date-pickers/MobileTimePicker";
 import Stack from "@mui/material/Stack";
 import CircularProgress from "@mui/material/CircularProgress";
 import {
+  Client,
   DEPARTMENT_OPTIONS,
   FormPayload,
   ProjectType,
+  STRATEGIC_PILLARS,
+  StrategicPillar,
   TASK_OPTIONS,
   TaskType,
 } from "@/types/types";
-import { useClientProjects } from "@/hooks/useClientProjects";
+// import { useClientProjects } from "@/hooks/useClientProjects";
 import { useClientProjectsMock } from "@/hooks/useClientProjectsMock";
 
 const style = {
@@ -50,7 +53,7 @@ interface Props {
 
 export default function BasicModal({
   basePayload: propBasePayload,
-  cookie: propCookie,
+  // cookie: propCookie,
 }: Props) {
   const [open, setOpen] = React.useState(false);
   const handleOpen = () => setOpen(true);
@@ -64,7 +67,7 @@ export default function BasicModal({
   const [task, setTask] = React.useState<TaskType | "">("");
   const [taskStation, setTaskStation] = React.useState("");
   const [department, setDepartment] = React.useState("");
-  // const [client, setClient] = React.useState("");
+  const [client, setClient] = React.useState<Client | "">("");
   const [project, setProject] = React.useState<ProjectType | "">("");
   const [taskDescription, setTaskDescription] = React.useState("");
   const [taskDate, setTaskDate] = React.useState<Dayjs | null>(null);
@@ -75,6 +78,9 @@ export default function BasicModal({
     dayjs("2022-04-17T17:00"),
   );
   const [totalMinutes, setTotalMinutes] = React.useState<number | null>(null);
+  const [strategicPillar, setStrategicPillar] = React.useState<
+    StrategicPillar | ""
+  >("");
 
   // UI states
   const [cleared, setCleared] = React.useState<boolean>(false);
@@ -95,9 +101,9 @@ export default function BasicModal({
     setDepartment(event.target.value);
   };
 
-  // const handleClientChange = (event: SelectChangeEvent) => {
-  //   setClient(event.target.value);
-  // };
+  const handleClientChange = (event: SelectChangeEvent<Client>) => {
+    setClient(event.target.value);
+  };
 
   const handleProjectChange = (event: SelectChangeEvent<ProjectType>) => {
     setProject(event.target.value as ProjectType);
@@ -127,6 +133,10 @@ export default function BasicModal({
     setTotalMinutes(total);
   };
 
+  const handleStrategicPillarChange = (event: SelectChangeEvent) => {
+    setStrategicPillar(event.target.value);
+  };
+
   const calculateTotalMinutes = (
     start: Dayjs | null,
     end: Dayjs | null,
@@ -137,9 +147,6 @@ export default function BasicModal({
 
     return diff > 0 ? diff : null;
   };
-
-  const defaultCookie =
-    "wordpress_sec_1a0d9858b63531bba71b0b67b48b921e=Samuel%20Mwangi%7C1769068622%7CMt9ZbevRo9yyKDwzQqOBORRSJbxKvsru4x2fNvyfpKa%7C9f1e21faf8de7170db7e01c5e9b6328e2efef5deb54701531f7d9be5145d9cc6; cf_clearance=3FEvMK1301wLfme.sq99nVfQJG9dFUrYMJQ.h4foOQw-1768895762-1.2.1.1-B4kchD7TKE0E.h.wOqbhzK7CmLhnCaYjq6oPMMYCdHXjZMTgNwRN6kdQST6vyX1CGH7Xpm7XRRLUUl_FL5PGN_NGpU5pRlEhHZQWw7fG38zgHjazh9TiHxVduNHXfxjv2QMx9u2TB_WkfK.MI_b3sMuJLZhhyRCWEZ2U3Iq.WaAeR18pCjlrokHdYbMKwqqlSijzw2IQEu_diGyI2uIT6KvjOWY0ZVYlUruFOGv1EQQ; wordpress_test_cookie=WP%20Cookie%20check; wordpress_logged_in_1a0d9858b63531bba71b0b67b48b921e=Samuel%20Mwangi%7C1769068622%7CMt9ZbevRo9yyKDwzQqOBORRSJbxKvsru4x2fNvyfpKa%7C342d6de93207f3c35329e29607604d8da7d188319454d8c435896f10b3eafb5c; wp-settings-time-48=1768896307";
 
   const defaultBasePayload: FormPayload = {
     "form-id": "52",
@@ -185,8 +192,12 @@ export default function BasicModal({
   // Use props if provided, otherwise use hardcoded values
   // const cookie = defaultCookie;
   const basePayload = propBasePayload || defaultBasePayload;
-  const client = "iGaming Afrika";
+  const clients: Client[] = [
+    "Mediaforce communications (MFC)",
+    "iGaming Afrika",
+  ];
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { projects, isLoading, error } = useClientProjectsMock(
     client,
     basePayload,
@@ -198,7 +209,7 @@ export default function BasicModal({
     setTask("");
     setTaskStation("");
     setDepartment("");
-    // setClient("");
+    setClient("");
     setProject("");
     setTaskDescription("");
     setTaskDate(null);
@@ -206,6 +217,7 @@ export default function BasicModal({
     setEndTime(dayjs("2022-04-17T17:00"));
     setSubmitSuccess(false);
     setSubmitError(null);
+    setStrategicPillar("");
   };
 
   const validateForm = () => {
@@ -392,7 +404,7 @@ export default function BasicModal({
               >
                 Department <span className="text-red-500">*</span>
               </label>
-              <FormControl required sx={{ m: 1, minWidth: 280 }}>
+              <FormControl required sx={{ m: 1, minWidth: 280, maxWidth: 280 }}>
                 <InputLabel id="department-label">Department</InputLabel>
                 <Select
                   labelId="department-label"
@@ -431,7 +443,7 @@ export default function BasicModal({
                 multiline
                 rows={10}
                 placeholder="Enter detailed task description..."
-                sx={{ m: 1, minWidth: "100%" }}
+                sx={{ m: 1, minWidth: "100%", maxWidth: "100%" }}
                 required
                 value={taskDescription}
                 onChange={handleTaskDescriptionChange}
@@ -510,86 +522,218 @@ export default function BasicModal({
           </div>
 
           {/* Row 4: Client and Project */}
-          <div className="space-x-2 flex">
-            <div className="w-[50%]">
+          <div
+            className={`space-x-4 grid ${client === "Mediaforce communications (MFC)" ? "grid-cols-3 " : "grid-cols-2"}`}
+          >
+            <div className="">
               <label
                 htmlFor="client"
                 className="block text-md font-semibold text-gray-700 ml-2 mb-1"
               >
                 Client <span className="text-red-500">*</span>
               </label>
-              <FormControl required sx={{ m: 1, minWidth: "100%" }}>
+              <FormControl
+                required
+                sx={{ m: 1, minWidth: "100%", maxWidth: "100%" }}
+              >
                 <InputLabel id="client-label">Client</InputLabel>
                 <Select
                   labelId="client-label"
                   id="client"
                   value={client}
                   label="Client *"
-                  // onChange={handleClientChange}
+                  onChange={handleClientChange}
                   disabled={isSubmitting}
                 >
-                  <MenuItem value="">
-                    <em>None</em>
-                  </MenuItem>
-                  <MenuItem value="john">John Doe</MenuItem>
-                  <MenuItem value="jane">Jane Smith</MenuItem>
-                  <MenuItem value="mike">Mike Johnson</MenuItem>
-                </Select>
-                <FormHelperText>Required</FormHelperText>
-              </FormControl>
-            </div>
-
-            <div className="w-[50%] px-4">
-              <label
-                htmlFor="project"
-                className="block text-md font-semibold text-gray-700 ml-2 mb-1"
-              >
-                Project <span className="text-red-500">*</span>
-              </label>
-              <FormControl
-                required
-                sx={{ m: 1, maxWidth: "100%", minWidth: "100%" }}
-              >
-                <InputLabel id="project-label">Project</InputLabel>
-
-                <Select
-                  labelId="project-label"
-                  id="project"
-                  value={project}
-                  label="Project *"
-                  onChange={handleProjectChange}
-                  disabled={isSubmitting}
-                  renderValue={(selected) => (
-                    <span
-                      style={{
-                        display: "block",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {selected}
-                    </span>
-                  )}
-                >
-                  {projects.map((project) => (
+                  {clients.map((client) => (
                     <MenuItem
-                      key={project}
-                      value={project}
+                      value={client}
+                      key={client}
                       sx={{
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {project}
+                      <em>{client}</em>
                     </MenuItem>
                   ))}
                 </Select>
-
                 <FormHelperText>Required</FormHelperText>
               </FormControl>
             </div>
+
+            {client === "Mediaforce communications (MFC)" ? (
+              <>
+                <div className="">
+                  <label
+                    htmlFor="strategic-pillar"
+                    className="block text-md font-semibold text-gray-700 ml-2 mb-1"
+                  >
+                    Strategic Pillar
+                  </label>
+                  <FormControl
+                    required
+                    sx={{ m: 1, maxWidth: "100%", minWidth: "100%" }}
+                  >
+                    <InputLabel id="strategic-pillar-label">Project</InputLabel>
+
+                    <Select
+                      labelId="strategic-pillar-label"
+                      id="strategic-pillar"
+                      value={strategicPillar}
+                      label="Strategic pillar"
+                      onChange={handleStrategicPillarChange}
+                      disabled={isSubmitting}
+                      renderValue={(selected) => (
+                        <span
+                          style={{
+                            display: "block",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {selected
+                            .split(" ")
+                            .map(
+                              (word) => word[0].toUpperCase() + word.slice(1),
+                            )
+                            .join(" ")}
+                        </span>
+                      )}
+                    >
+                      {STRATEGIC_PILLARS.map((pillar) => (
+                        <MenuItem
+                          key={pillar}
+                          value={pillar}
+                          sx={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {pillar
+                            .split(" ")
+                            .map(
+                              (word) => word[0].toUpperCase() + word.slice(1),
+                            )
+                            .join(" ")}
+                        </MenuItem>
+                      ))}
+                    </Select>
+
+                    <FormHelperText>Required</FormHelperText>
+                  </FormControl>
+                </div>
+
+                <div
+                  className={`${client === "Mediaforce communications (MFC)" ? "" : ""}`}
+                >
+                  <label
+                    htmlFor="project"
+                    className="block text-md font-semibold text-gray-700 ml-2 mb-1"
+                  >
+                    Strategies & Key Activities{" "}
+                  </label>
+                  <FormControl
+                    required
+                    sx={{ m: 1, maxWidth: "100%", minWidth: "100%" }}
+                  >
+                    <InputLabel id="project-label">Project</InputLabel>
+
+                    <Select
+                      labelId="project-label"
+                      id="project"
+                      value={project}
+                      label="Project *"
+                      onChange={handleProjectChange}
+                      disabled={isSubmitting}
+                      renderValue={(selected) => (
+                        <span
+                          style={{
+                            display: "block",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {selected}
+                        </span>
+                      )}
+                    >
+                      {projects.map((project) => (
+                        <MenuItem
+                          key={project}
+                          value={project}
+                          sx={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {project}
+                        </MenuItem>
+                      ))}
+                    </Select>
+
+                    <FormHelperText>Required</FormHelperText>
+                  </FormControl>
+                </div>
+              </>
+            ) : (
+              <div className="">
+                <label
+                  htmlFor="project"
+                  className="block text-md font-semibold text-gray-700 ml-2 mb-1"
+                >
+                  Project <span className="text-red-500">*</span>
+                </label>
+                <FormControl
+                  required
+                  sx={{ m: 1, maxWidth: "100%", minWidth: "100%" }}
+                >
+                  <InputLabel id="project-label">Project</InputLabel>
+
+                  <Select
+                    labelId="project-label"
+                    id="project"
+                    value={project}
+                    label="Project *"
+                    onChange={handleProjectChange}
+                    disabled={isSubmitting}
+                    renderValue={(selected) => (
+                      <span
+                        style={{
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {selected}
+                      </span>
+                    )}
+                  >
+                    {projects.map((project) => (
+                      <MenuItem
+                        key={project}
+                        value={project}
+                        sx={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {project}
+                      </MenuItem>
+                    ))}
+                  </Select>
+
+                  <FormHelperText>Required</FormHelperText>
+                </FormControl>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -599,21 +743,43 @@ export default function BasicModal({
             className="flex justify-center"
             sx={{ mt: 2 }}
           >
+            {/* Cancel Button with red border */}
             <Button
               onClick={handleClose}
               variant="outlined"
               size="large"
               disabled={isSubmitting}
+              sx={{
+                width: "150px",
+                borderColor: "red",
+                color: "white",
+                backgroundColor: "red",
+                "&:hover": {
+                  color: "white",
+                  borderColor: "darkred",
+                  backgroundColor: "darkred", // subtle red hover effect
+                },
+              }}
             >
               Cancel
             </Button>
+
+            {/* Submit Button with red background and matching spinner */}
             <Button
               onClick={handleSubmit}
-              color="primary"
               size="large"
               variant="contained"
               disabled={isSubmitting}
-              startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
+              startIcon={
+                isSubmitting ? (
+                  <CircularProgress size={20} sx={{ color: "white" }} />
+                ) : null
+              }
+              sx={{
+                width: "250px",
+                backgroundColor: "green",
+                "&:hover": { backgroundColor: "darkgreen" }, // slightly less dark than default
+              }}
             >
               {isSubmitting ? "Creating..." : "Create Task"}
             </Button>
