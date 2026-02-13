@@ -18,8 +18,7 @@ export const getAllClients = async (
   const clients = await clientService.getAllClients();
 
   res.status(200).json({
-    status: "success",
-    data: clients,
+    clients,
     count: clients.length,
   });
 };
@@ -166,8 +165,7 @@ export const getClientProjects = async (
   const projects = await clientService.getClientProjects(parseInt(id));
 
   res.status(200).json({
-    status: "success",
-    data: projects,
+    projects,
     count: projects.length,
   });
 };

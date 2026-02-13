@@ -18,8 +18,7 @@ export const getAllDepartments = async (
   const departments = await departmentService.getAllDepartments();
 
   res.status(200).json({
-    status: "success",
-    data: departments,
+    departments,
     count: departments.length,
   });
 };

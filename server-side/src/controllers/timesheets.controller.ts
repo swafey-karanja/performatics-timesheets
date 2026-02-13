@@ -66,9 +66,8 @@ export const createTimesheet = async (
   const newTimesheet = await timesheetService.createTimesheet(timesheetData);
 
   res.status(201).json({
-    status: "success",
     message: "Timesheet entry created successfully",
-    data: newTimesheet,
+    newTimesheet,
   });
 };
 

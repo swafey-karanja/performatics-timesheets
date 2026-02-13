@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-asserted-optional-chain */
 "use client";
 
 import * as React from "react";
@@ -19,17 +20,18 @@ import { MobileTimePicker } from "@mui/x-date-pickers/MobileTimePicker";
 import Stack from "@mui/material/Stack";
 import CircularProgress from "@mui/material/CircularProgress";
 import {
-  Client,
-  DEPARTMENT_OPTIONS,
-  FormPayload,
-  ProjectType,
+  // Client,
+  // DEPARTMENT_OPTIONS,
   STRATEGIC_PILLARS,
   StrategicPillar,
   TASK_OPTIONS,
+  TaskStation,
   TaskType,
 } from "@/types/types";
 // import { useClientProjects } from "@/hooks/useClientProjects";
-import { useClientProjectsMock } from "@/hooks/useClientProjectsMock";
+import { useClientProjects, useFetchClients } from "@/hooks/useClients";
+import { useDepartments } from "@/hooks/useDepartments";
+import { useCreateTimesheet } from "@/hooks/useTimesheets";
 
 const style = {
   position: "absolute",
@@ -46,15 +48,7 @@ const style = {
   p: 4,
 };
 
-interface Props {
-  basePayload: FormPayload; // Now fully typed
-  cookie: string;
-}
-
-export default function BasicModal({
-  basePayload: propBasePayload,
-  // cookie: propCookie,
-}: Props) {
+export default function BasicModal() {
   const [open, setOpen] = React.useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => {
@@ -67,8 +61,10 @@ export default function BasicModal({
   const [task, setTask] = React.useState<TaskType | "">("");
   const [taskStation, setTaskStation] = React.useState("");
   const [department, setDepartment] = React.useState("");
-  const [client, setClient] = React.useState<Client | "">("");
-  const [project, setProject] = React.useState<ProjectType | "">("");
+  const [departmentId, setDepartmentId] = React.useState<number | null>(null);
+  const [client, setClient] = React.useState<string>("");
+  const [clientId, setClientId] = React.useState<number | null>(null);
+  const [project, setProject] = React.useState<string>("");
   const [taskDescription, setTaskDescription] = React.useState("");
   const [taskDate, setTaskDate] = React.useState<Dayjs | null>(null);
   const [startTime, setStartTime] = React.useState<Dayjs | null>(
@@ -88,6 +84,47 @@ export default function BasicModal({
   const [submitSuccess, setSubmitSuccess] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
+  // Fetch Hooks
+  const {
+    clients,
+    isLoading: clientsLoading,
+    error: clientsError,
+    mutate: clientsMutate,
+  } = useFetchClients();
+
+  const {
+    projects: clientProjects,
+    isLoading: clientProjectLoading,
+    error: clientProjectsError,
+  } = useClientProjects(clientId);
+
+  const { departments, isLoading, error } = useDepartments();
+  const {
+    submit: submitTimesheet,
+    isLoading: isSubmittingTimesheet,
+    error: timesheetError,
+  } = useCreateTimesheet();
+
+  // console.log({ departments });
+  // console.log({ clientProjects });
+
+  const clientNames = React.useMemo(() => {
+    return clients.map((c) => c.client_name);
+  }, [clients]);
+
+  const clientProjectNames = React.useMemo(() => {
+    return clientProjects.map((c) => c.project_name);
+  }, [clientProjects]);
+
+  const departmentNames = React.useMemo(() => {
+    return departments.map((c) => c.department_name);
+  }, [departments]);
+
+  // ✅ ADD THIS: Reset project when client changes
+  React.useEffect(() => {
+    setProject(""); // Clear project selection when client changes
+  }, [clientId]);
+
   // Handlers
   const handleTaskChange = (event: SelectChangeEvent<TaskType>) => {
     setTask(event.target.value as TaskType);
@@ -98,15 +135,31 @@ export default function BasicModal({
   };
 
   const handleDepartmentChange = (event: SelectChangeEvent) => {
-    setDepartment(event.target.value);
+    const selectedDepartmentName = event.target.value;
+    setDepartment(selectedDepartmentName);
+
+    // ✅ Find the department object and extract the ID
+    const selectedDepartment = departments.find(
+      (d) => d.department_name === selectedDepartmentName,
+    );
+    setDepartmentId(selectedDepartment?.department_id ?? null);
   };
 
-  const handleClientChange = (event: SelectChangeEvent<Client>) => {
-    setClient(event.target.value);
-  };
+  const handleClientChange = (event: SelectChangeEvent) => {
+    const selectedClientName = event.target.value;
+    setClient(selectedClientName);
 
-  const handleProjectChange = (event: SelectChangeEvent<ProjectType>) => {
-    setProject(event.target.value as ProjectType);
+    // ✅ Find the client object and extract the ID
+    const selectedClient = clients.find(
+      (c) => c.client_name === selectedClientName,
+    );
+    setClientId(selectedClient?.client_id ?? null);
+
+    // ✅ Clear the project when client changes
+    setProject("");
+  };
+  const handleProjectChange = (event: SelectChangeEvent) => {
+    setProject(event.target.value);
   };
 
   const handleTaskDescriptionChange = (
@@ -148,68 +201,13 @@ export default function BasicModal({
     return diff > 0 ? diff : null;
   };
 
-  const defaultBasePayload: FormPayload = {
-    "form-id": "52",
-    "lead-id": null,
-    "field-ids": ["14", "40", "69"],
-    "gravityview-meta": false,
-    "field-values": {
-      "8": "",
-      "9": ["", "", "am"],
-      "11": ["", "", "am"],
-      "14": "",
-      "22": "",
-      "38": "",
-      "39": "",
-      "40": "",
-      "43": "0",
-      "49": "",
-      "55": "48",
-      "56": "",
-      "63": "Samuel Mwangi",
-      "65": "",
-      "67": "Board",
-      "68": "iGaming Afrika",
-      "69": "Sand",
-      "71": "",
-      "72": "",
-    },
-    "merge-tags": ["@{Hours:43}", "@{Cluster:69}", "@{Account Manager:40}"],
-    "lmt-nonces": {
-      "{Hours:43}": "aa1e1e4c2b",
-      "{Cluster:69}": "c672e2ec74",
-      "{Account Manager:40}": "4ace45977c",
-    },
-    "current-merge-tag-values": {
-      "@{Hours:43}": "",
-      "@{Cluster:69}": "Water",
-      "@{Account Manager:40}": "",
-    },
-    security: "8be24b9c42",
-    show_admin_fields_in_ajax: "",
-  };
-
-  // Use props if provided, otherwise use hardcoded values
-  // const cookie = defaultCookie;
-  const basePayload = propBasePayload || defaultBasePayload;
-  const clients: Client[] = [
-    "Mediaforce communications (MFC)",
-    "iGaming Afrika",
-  ];
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { projects, isLoading, error } = useClientProjectsMock(
-    client,
-    basePayload,
-  );
-
-  console.log({ projects });
-
   const resetForm = () => {
     setTask("");
     setTaskStation("");
     setDepartment("");
+    setDepartmentId(null);
     setClient("");
+    setClientId(null);
     setProject("");
     setTaskDescription("");
     setTaskDate(null);
@@ -247,58 +245,54 @@ export default function BasicModal({
 
     setIsSubmitting(true);
 
-    // Prepare the data to send to the backend
-    const formData = {
-      taskType: task,
-      taskStation: taskStation,
-      department: department,
-      client: client,
-      project: project,
-      description: taskDescription,
-      taskDate: taskDate?.format("YYYY-MM-DD"),
-      startTime: startTime?.format("HH:mm"),
-      endTime: endTime?.format("HH:mm"),
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const selectedClient = clients.find((c) => c.client_name === client);
+      const selectedProject = clientProjects.find(
+        (p) => p.project_name === project,
+      );
+      const selectedDepartment = departments.find(
+        (d) => d.department_name === department,
+      );
 
-    console.log({ formData });
+      // Prepare the data to send to the backend
+      const timesheetData = {
+        staff_id: 9,
+        task_type: task,
+        task_station: (taskStation.charAt(0).toUpperCase() +
+          taskStation.slice(1).toLowerCase()) as TaskStation,
+        department_id: selectedDepartment?.department_id || departmentId!,
+        client_id: selectedClient?.client_id || clientId!,
+        project_id: selectedProject?.project_id!,
+        task_description: taskDescription,
+        date: taskDate?.format("YYYY-MM-DD")!,
+        check_in_time: startTime?.format("HH:mm:ss")!,
+        check_out_time: endTime?.format("HH:mm:ss")!,
+      };
 
-    // try {
-    //   // Replace with your actual API endpoint
-    //   const response = await fetch("/api/tasks", {
-    //     method: "POST",
-    //     headers: {
-    //       "Content-Type": "application/json",
-    //       // Add authentication headers if needed
-    //       // "Authorization": `Bearer ${yourAuthToken}`
-    //     },
-    //     body: JSON.stringify(formData),
-    //   });
+      console.log({ timesheetData });
 
-    //   if (!response.ok) {
-    //     throw new Error(`HTTP error! status: ${response.status}`);
-    //   }
+      // ✅ Submit to backend using the hook
+      const result = await submitTimesheet(timesheetData);
 
-    //   const data = await response.json();
-    //   console.log("Task created successfully:", data);
+      console.log("Timesheet created successfully:", result);
 
-    //   // Show success message
-    //   setSubmitSuccess(true);
+      // Show success message
+      setSubmitSuccess(true);
 
-    //   // Close modal and reset form after 2 seconds
-    //   setTimeout(() => {
-    //     handleClose();
-    //   }, 2000);
-    // } catch (error) {
-    //   console.error("Error creating task:", error);
-    //   setSubmitError(
-    //     error instanceof Error
-    //       ? error.message
-    //       : "Failed to create task. Please try again."
-    //   );
-    // } finally {
-    //   setIsSubmitting(false);
-    // }
+      // Close modal and reset form after 2 seconds
+      setTimeout(() => {
+        handleClose();
+      }, 2000);
+    } catch (error) {
+      console.error("Error creating timesheet:", error);
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Failed to create timesheet. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   React.useEffect(() => {
@@ -414,7 +408,7 @@ export default function BasicModal({
                   onChange={handleDepartmentChange}
                   disabled={isSubmitting}
                 >
-                  {DEPARTMENT_OPTIONS.map((option) => (
+                  {departmentNames.map((option) => (
                     <MenuItem key={option} value={option}>
                       {option
                         .split(" ")
@@ -523,7 +517,7 @@ export default function BasicModal({
 
           {/* Row 4: Client and Project */}
           <div
-            className={`space-x-4 grid ${client === "Mediaforce communications (MFC)" ? "grid-cols-3 " : "grid-cols-2"}`}
+            className={`space-x-4 grid ${client === "Mediaforce Communications (MFC)" ? "grid-cols-3 " : "grid-cols-2"}`}
           >
             <div className="">
               <label
@@ -543,27 +537,39 @@ export default function BasicModal({
                   value={client}
                   label="Client *"
                   onChange={handleClientChange}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || clientsLoading} // ✅ Disable while loading
                 >
-                  {clients.map((client) => (
-                    <MenuItem
-                      value={client}
-                      key={client}
-                      sx={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <em>{client}</em>
+                  {/* ✅ Show loading state */}
+                  {clientsLoading ? (
+                    <MenuItem disabled>
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                      Loading clients...
                     </MenuItem>
-                  ))}
+                  ) : clientsError ? (
+                    <MenuItem disabled>Error loading clients</MenuItem>
+                  ) : clientNames.length === 0 ? (
+                    <MenuItem disabled>No clients available</MenuItem>
+                  ) : (
+                    clientNames.map((clientName) => (
+                      <MenuItem
+                        value={clientName}
+                        key={clientName}
+                        sx={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <em>{clientName}</em>
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
                 <FormHelperText>Required</FormHelperText>
               </FormControl>
             </div>
 
-            {client === "Mediaforce communications (MFC)" ? (
+            {client === "Mediaforce Communications (MFC)" ? (
               <>
                 <div className="">
                   <label
@@ -628,7 +634,7 @@ export default function BasicModal({
                 </div>
 
                 <div
-                  className={`${client === "Mediaforce communications (MFC)" ? "" : ""}`}
+                  className={`${client === "Mediaforce Communications (MFC)" ? "" : ""}`}
                 >
                   <label
                     htmlFor="project"
@@ -662,7 +668,7 @@ export default function BasicModal({
                         </span>
                       )}
                     >
-                      {projects.map((project) => (
+                      {clientProjectNames.map((project) => (
                         <MenuItem
                           key={project}
                           value={project}
@@ -715,7 +721,7 @@ export default function BasicModal({
                       </span>
                     )}
                   >
-                    {projects.map((project) => (
+                    {clientProjectNames.map((project) => (
                       <MenuItem
                         key={project}
                         value={project}

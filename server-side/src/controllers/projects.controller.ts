@@ -18,8 +18,7 @@ export const getAllProjects = async (
   const projects = await projectService.getAllProjects();
 
   res.status(200).json({
-    status: "success",
-    data: projects,
+    projects, // ✅ This is fine - just don't wrap it again
     count: projects.length,
   });
 };
