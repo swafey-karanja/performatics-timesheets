@@ -1,0 +1,586 @@
+# Timesheet Database System - PostgreSQL Schema Documentation
+
+## Overview
+This document provides complete documentation for a PostgreSQL-based timesheet management system. The database consists of six interconnected tables that track staff, clients, projects, departments, and time entries.
+
+---
+
+## Database Architecture
+
+### Entity Relationship Summary
+```
+staff_details (1) ──→ (1) staff_accounts
+staff_accounts (1) ──→ (N) clients (as account manager)
+staff_accounts (1) ──→ (1) departments (as department head)
+staff_accounts (N) ──→ (1) departments (as department member)
+clients (1) ──→ (N) projects
+departments (1) ──→ (N) timesheets
+staff_details (1) ──→ (N) timesheets
+clients (1) ──→ (N) timesheets
+projects (1) ──→ (N) timesheets
+```
+
+---
+
+## Table Schemas
+
+### 1. Staff Details Table
+**Purpose:** Stores core employee/consultant/intern information
+
+```sql
+CREATE TABLE staff_details (
+    staff_id SERIAL PRIMARY KEY,
+    staff_name VARCHAR(100) NOT NULL,
+    work_type VARCHAR(20) NOT NULL CHECK (work_type IN ('Employment', 'Consultancy', 'Internship')),
+    staff_role VARCHAR(100) NOT NULL,
+    gender VARCHAR(10) CHECK (gender IN ('Male', 'Female')),
+    personal_email VARCHAR(100) UNIQUE NOT NULL,
+    phone_number VARCHAR(20),
+    date_joined DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_staff_email ON staff_details(personal_email);
+CREATE INDEX idx_staff_work_type ON staff_details(work_type);
+```
+
+**Key Fields:**
+- `staff_id`: Auto-incrementing primary key
+- `work_type`: Employment, Consultancy, or Internship
+- `gender`: Male or Female
+- `personal_email`: Unique identifier
+
+---
+
+### 2. Departments Table
+**Purpose:** Manages organizational departments and their heads
+
+```sql
+CREATE TABLE departments (
+    department_id SERIAL PRIMARY KEY,
+    department_name VARCHAR(100) UNIQUE NOT NULL,
+    department_head_id INTEGER NOT NULL REFERENCES staff_details(staff_id) ON DELETE RESTRICT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_departments_head ON departments(department_head_id);
+```
+
+**Key Fields:**
+- `department_id`: Primary key
+- `department_name`: Unique department name
+- `department_head_id`: Links to staff_accounts (must be a valid account)
+
+**Delete Behavior:**
+- `ON DELETE RESTRICT`: Cannot delete a staff account that is a department head
+
+---
+
+### 3. Staff Accounts Table
+**Purpose:** Manages system access and work email accounts for staff
+
+```sql
+CREATE TABLE staff_accounts (
+    account_id SERIAL PRIMARY KEY,
+    staff_id INTEGER NOT NULL REFERENCES staff_details(staff_id) ON DELETE CASCADE,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    work_email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL, -- stores hashed password
+    status VARCHAR(20) NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Suspended')),
+    department_id INTEGER REFERENCES departments(department_id) ON DELETE SET NULL,
+    date_registered DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_staff_accounts_staff_id ON staff_accounts(staff_id);
+CREATE INDEX idx_staff_accounts_username ON staff_accounts(username);
+CREATE INDEX idx_staff_accounts_status ON staff_accounts(status);
+CREATE INDEX idx_staff_accounts_department ON staff_accounts(department_id);
+
+ALTER TABLE staff_accounts 
+ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'Staff' 
+CHECK (role IN ('Admin', 'Manager', 'Staff'));
+
+CREATE INDEX idx_staff_accounts_role ON staff_accounts(role);
+```
+
+**Key Fields:**
+- `account_id`: Primary key
+- `staff_id`: Links to staff_details (one-to-one relationship)
+- `status`: Active or Suspended
+- `department_id`: Optional department assignment
+
+**Delete Behavior:**
+- `ON DELETE CASCADE`: Deleting a staff member deletes their account
+- `ON DELETE SET NULL`: Deleting a department sets staff department_id to NULL
+
+---
+
+### 4. Clients Table
+**Purpose:** Stores client information and account management assignments
+
+```sql
+CREATE TABLE clients (
+    client_id SERIAL PRIMARY KEY,
+    client_name VARCHAR(150) NOT NULL,
+    sector VARCHAR(20) NOT NULL CHECK (sector IN ('Non-profit', 'Individual', 'Startup', 'Government')),
+    category VARCHAR(20) NOT NULL CHECK (category IN ('Converted', 'Prospect')),
+    account_manager_id INTEGER NOT NULL REFERENCES staff_details(staff_id) ON DELETE RESTRICT,
+    entry_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_clients_account_manager ON clients(account_manager_id);
+CREATE INDEX idx_clients_sector ON clients(sector);
+CREATE INDEX idx_clients_category ON clients(category);
+```
+
+**Key Fields:**
+- `client_id`: Primary key
+- `sector`: Non-profit, Individual, Startup, or Government
+- `category`: Converted or Prospect
+- `account_manager_id`: Links to staff_accounts
+
+**Delete Behavior:**
+- `ON DELETE RESTRICT`: Cannot delete an account manager who has assigned clients
+
+---
+
+### 5. Projects Table
+**Purpose:** Tracks projects associated with clients
+
+```sql
+CREATE TABLE projects (
+    project_id SERIAL PRIMARY KEY,
+    project_name VARCHAR(150) NOT NULL,
+    client_id INTEGER NOT NULL REFERENCES clients(client_id) ON DELETE RESTRICT,
+    start_date DATE NOT NULL,
+    end_date DATE,
+    cluster VARCHAR(20) NOT NULL CHECK (cluster IN ('Stone', 'Ballast', 'Sand', 'Water')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_projects_client_id ON projects(client_id);
+CREATE INDEX idx_projects_cluster ON projects(cluster);
+CREATE INDEX idx_projects_dates ON projects(start_date, end_date);
+```
+
+**Key Fields:**
+- `project_id`: Primary key
+- `client_id`: Links to clients table
+- `end_date`: Nullable (for ongoing projects)
+- `cluster`: Stone, Ballast, Sand, or Water
+
+**Delete Behavior:**
+- `ON DELETE RESTRICT`: Cannot delete a client with existing projects
+
+---
+
+### 6. Timesheets Table
+**Purpose:** Central table tracking all time entries across staff, departments, clients, and projects
+
+```sql
+CREATE TABLE timesheets (
+    timesheet_id SERIAL PRIMARY KEY,
+    staff_id INTEGER NOT NULL REFERENCES staff_details(staff_id) ON DELETE CASCADE,
+    task_description TEXT NOT NULL,
+    task_type VARCHAR(50) NOT NULL CHECK (task_type IN (
+        'Creative',
+        'Project management',
+        'Accounts & Finance',
+        'Client service',
+        'Admin',
+        'Admin meeting',
+        'Discovery meeting',
+        'Business development meeting',
+        'Project meeting',
+        'Procurement',
+        'HR',
+        'Proposal development',
+        'Report Review',
+        'Report writing',
+        'Presentation development'
+    )),
+    task_station VARCHAR(20) NOT NULL CHECK (task_station IN ('Office', 'Field', 'Remote')),
+    department_id INTEGER NOT NULL REFERENCES departments(department_id) ON DELETE RESTRICT,
+    date DATE NOT NULL,
+    check_in_time TIME NOT NULL,
+    check_out_time TIME NOT NULL,
+    hours_spent DECIMAL(5,2) GENERATED ALWAYS AS (
+        EXTRACT(EPOCH FROM (check_out_time - check_in_time)) / 3600
+    ) STORED,
+    client_id INTEGER REFERENCES clients(client_id) ON DELETE RESTRICT,
+    project_id INTEGER REFERENCES projects(project_id) ON DELETE RESTRICT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT check_times CHECK (check_out_time > check_in_time)
+);
+
+CREATE INDEX idx_timesheets_staff ON timesheets(staff_id);
+CREATE INDEX idx_timesheets_department ON timesheets(department_id);
+CREATE INDEX idx_timesheets_client ON timesheets(client_id);
+CREATE INDEX idx_timesheets_project ON timesheets(project_id);
+CREATE INDEX idx_timesheets_date ON timesheets(date);
+```
+
+**Key Fields:**
+- `timesheet_id`: Primary key
+- `staff_id`: Links to staff_details
+- `task_type`: 15 predefined task types
+- `task_station`: Office, Field, or Remote
+- `hours_spent`: Auto-calculated from check-in/check-out times
+- `client_id`, `project_id`: Optional (for non-client tasks like Admin, HR)
+
+**Delete Behavior:**
+- `ON DELETE CASCADE`: Deleting a staff member deletes their timesheets
+- `ON DELETE RESTRICT`: Cannot delete departments, clients, or projects with timesheet entries
+
+---
+
+## Database Creation Script
+
+To create the entire database in order, run these commands:
+
+```sql
+-- 1. Create staff_details table first (no dependencies)
+CREATE TABLE staff_details (
+    staff_id SERIAL PRIMARY KEY,
+    staff_name VARCHAR(100) NOT NULL,
+    work_type VARCHAR(20) NOT NULL CHECK (work_type IN ('Employment', 'Consultancy', 'Internship')),
+    staff_role VARCHAR(100) NOT NULL,
+    gender VARCHAR(10) CHECK (gender IN ('Male', 'Female')),
+    personal_email VARCHAR(100) UNIQUE NOT NULL,
+    phone_number VARCHAR(20),
+    date_joined DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_staff_email ON staff_details(personal_email);
+CREATE INDEX idx_staff_work_type ON staff_details(work_type);
+
+-- 2. Create staff_accounts table (depends on staff_details, will add department later)
+CREATE TABLE staff_accounts (
+    account_id SERIAL PRIMARY KEY,
+    staff_id INTEGER NOT NULL REFERENCES staff_details(staff_id) ON DELETE CASCADE,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    work_email VARCHAR(100) UNIQUE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Suspended')),
+    date_registered DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_staff_accounts_staff_id ON staff_accounts(staff_id);
+CREATE INDEX idx_staff_accounts_username ON staff_accounts(username);
+CREATE INDEX idx_staff_accounts_status ON staff_accounts(status);
+
+-- 3. Create departments table (depends on staff_accounts)
+CREATE TABLE departments (
+    department_id SERIAL PRIMARY KEY,
+    department_name VARCHAR(100) UNIQUE NOT NULL,
+    department_head_id INTEGER NOT NULL REFERENCES staff_details(staff_id) ON DELETE RESTRICT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_departments_head ON departments(department_head_id);
+
+-- 4. Add department_id to staff_accounts (circular dependency resolved)
+ALTER TABLE staff_accounts
+ADD COLUMN department_id INTEGER REFERENCES departments(department_id) ON DELETE SET NULL;
+
+CREATE INDEX idx_staff_accounts_department ON staff_accounts(department_id);
+
+-- 5. Create clients table (depends on staff_accounts)
+CREATE TABLE clients (
+    client_id SERIAL PRIMARY KEY,
+    client_name VARCHAR(150) NOT NULL,
+    sector VARCHAR(20) NOT NULL CHECK (sector IN ('Non-profit', 'Individual', 'Startup', 'Government')),
+    category VARCHAR(20) NOT NULL CHECK (category IN ('Converted', 'Prospect')),
+    account_manager_id INTEGER NOT NULL REFERENCES staff_details(staff_id) ON DELETE RESTRICT,
+    entry_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_clients_account_manager ON clients(account_manager_id);
+CREATE INDEX idx_clients_sector ON clients(sector);
+CREATE INDEX idx_clients_category ON clients(category);
+
+-- 6. Create projects table (depends on clients)
+CREATE TABLE projects (
+    project_id SERIAL PRIMARY KEY,
+    project_name VARCHAR(150) NOT NULL,
+    client_id INTEGER NOT NULL REFERENCES clients(client_id) ON DELETE RESTRICT,
+    start_date DATE NOT NULL,
+    end_date DATE,
+    cluster VARCHAR(20) NOT NULL CHECK (cluster IN ('Stone', 'Ballast', 'Sand', 'Water')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_projects_client_id ON projects(client_id);
+CREATE INDEX idx_projects_cluster ON projects(cluster);
+CREATE INDEX idx_projects_dates ON projects(start_date, end_date);
+
+-- 7. Create timesheets table (depends on all other tables)
+CREATE TABLE timesheets (
+    timesheet_id SERIAL PRIMARY KEY,
+    staff_id INTEGER NOT NULL REFERENCES staff_details(staff_id) ON DELETE CASCADE,
+    task_description TEXT NOT NULL,
+    task_type VARCHAR(50) NOT NULL CHECK (task_type IN (
+        'Creative',
+        'Project management',
+        'Accounts & Finance',
+        'Client service',
+        'Admin',
+        'Admin meeting',
+        'Discovery meeting',
+        'Business development meeting',
+        'Project meeting',
+        'Procurement',
+        'HR',
+        'Proposal development',
+        'Report Review',
+        'Report writing',
+        'Presentation development'
+    )),
+    task_station VARCHAR(20) NOT NULL CHECK (task_station IN ('Office', 'Field', 'Remote')),
+    department_id INTEGER NOT NULL REFERENCES departments(department_id) ON DELETE RESTRICT,
+    date DATE NOT NULL,
+    check_in_time TIME NOT NULL,
+    check_out_time TIME NOT NULL,
+    hours_spent DECIMAL(5,2) GENERATED ALWAYS AS (
+        EXTRACT(EPOCH FROM (check_out_time - check_in_time)) / 3600
+    ) STORED,
+    client_id INTEGER REFERENCES clients(client_id) ON DELETE RESTRICT,
+    project_id INTEGER REFERENCES projects(project_id) ON DELETE RESTRICT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT check_times CHECK (check_out_time > check_in_time)
+);
+
+CREATE INDEX idx_timesheets_staff ON timesheets(staff_id);
+CREATE INDEX idx_timesheets_department ON timesheets(department_id);
+CREATE INDEX idx_timesheets_client ON timesheets(client_id);
+CREATE INDEX idx_timesheets_project ON timesheets(project_id);
+CREATE INDEX idx_timesheets_date ON timesheets(date);
+```
+
+---
+
+## Common Queries
+
+### 1. Get Staff Account Details with Staff Name
+```sql
+SELECT 
+    sa.account_id,
+    sd.staff_name,
+    sa.username,
+    sa.work_email,
+    sa.status,
+    sa.date_registered
+FROM staff_accounts sa
+INNER JOIN staff_details sd ON sa.staff_id = sd.staff_id
+WHERE sa.account_id = 1;
+```
+
+### 2. Get Client Details with Account Manager Name
+```sql
+SELECT 
+    c.client_id,
+    c.client_name,
+    c.sector,
+    c.category,
+    sd.staff_name AS account_manager_name,
+    c.entry_date
+FROM clients c
+INNER JOIN staff_accounts sa ON c.account_manager_id = sa.account_id
+INNER JOIN staff_details sd ON sa.staff_id = sd.staff_id
+WHERE c.client_id = 1;
+```
+
+### 3. Get Department Details with Head's Name
+```sql
+SELECT 
+    d.department_id,
+    d.department_name,
+    sd.staff_name AS department_head_name
+FROM departments d
+INNER JOIN staff_accounts sa ON d.department_head_id = sa.account_id
+INNER JOIN staff_details sd ON sa.staff_id = sd.staff_id;
+```
+
+### 4. Get All Staff in a Department
+```sql
+SELECT 
+    d.department_name, 
+    sd.staff_name 
+FROM departments d
+INNER JOIN staff_accounts sa ON d.department_id = sa.department_id
+INNER JOIN staff_details sd ON sa.staff_id = sd.staff_id
+WHERE d.department_id = 1;
+```
+
+### 5. Get Complete Timesheet Entry with All Related Info
+```sql
+SELECT 
+    t.timesheet_id,
+    sd.staff_name,
+    t.task_description,
+    t.task_type,
+    t.task_station,
+    d.department_name,
+    t.date,
+    t.check_in_time,
+    t.check_out_time,
+    t.hours_spent,
+    c.client_name,
+    p.project_name
+FROM timesheets t
+INNER JOIN staff_details sd ON t.staff_id = sd.staff_id
+INNER JOIN departments d ON t.department_id = d.department_id
+LEFT JOIN clients c ON t.client_id = c.client_id
+LEFT JOIN projects p ON t.project_id = p.project_id
+WHERE t.timesheet_id = 1;
+```
+
+### 6. Get Staff Hours by Date Range
+```sql
+SELECT 
+    sd.staff_name,
+    SUM(t.hours_spent) AS total_hours,
+    COUNT(t.timesheet_id) AS number_of_entries
+FROM timesheets t
+INNER JOIN staff_details sd ON t.staff_id = sd.staff_id
+WHERE t.date BETWEEN '2024-01-01' AND '2024-01-31'
+GROUP BY sd.staff_name
+ORDER BY total_hours DESC;
+```
+
+### 7. Get Hours by Project
+```sql
+SELECT 
+    p.project_name,
+    c.client_name,
+    SUM(t.hours_spent) AS total_hours,
+    COUNT(DISTINCT t.staff_id) AS staff_count
+FROM timesheets t
+INNER JOIN projects p ON t.project_id = p.project_id
+INNER JOIN clients c ON p.client_id = c.client_id
+GROUP BY p.project_name, c.client_name
+ORDER BY total_hours DESC;
+```
+
+---
+
+## Common Operations
+
+### Insert New Staff Member
+```sql
+-- 1. Insert into staff_details
+INSERT INTO staff_details (staff_name, work_type, staff_role, gender, personal_email, phone_number, date_joined)
+VALUES ('John Doe', 'Employment', 'Software Developer', 'Male', 'john@example.com', '+254700000000', '2024-01-15');
+
+-- 2. Insert into staff_accounts
+INSERT INTO staff_accounts (staff_id, username, work_email, status)
+VALUES (1, 'jdoe', 'john.doe@company.com', 'Active');
+```
+
+### Update Staff Department
+```sql
+UPDATE staff_accounts
+SET department_id = 1
+WHERE account_id = 2;
+```
+
+### Insert Timesheet Entry
+```sql
+INSERT INTO timesheets (
+    staff_id, task_description, task_type, task_station, 
+    department_id, date, check_in_time, check_out_time, 
+    client_id, project_id
+)
+VALUES (
+    1, 'Developed new feature for client portal', 'Project management', 'Office',
+    1, '2024-02-05', '09:00:00', '17:00:00',
+    1, 1
+);
+```
+
+---
+
+## Delete Behavior Reference
+
+| Table | Foreign Key | Delete Action | Effect |
+|-------|-------------|---------------|---------|
+| staff_accounts | staff_id | CASCADE | Delete staff → delete account |
+| staff_accounts | department_id | SET NULL | Delete dept → set to NULL |
+| departments | department_head_id | RESTRICT | Cannot delete if dept head |
+| clients | account_manager_id | RESTRICT | Cannot delete if managing clients |
+| projects | client_id | RESTRICT | Cannot delete client with projects |
+| timesheets | staff_id | CASCADE | Delete staff → delete timesheets |
+| timesheets | department_id | RESTRICT | Cannot delete dept with timesheets |
+| timesheets | client_id | RESTRICT | Cannot delete client with timesheets |
+| timesheets | project_id | RESTRICT | Cannot delete project with timesheets |
+
+**Key Principles:**
+- **CASCADE**: Use when child records should be deleted automatically
+- **RESTRICT**: Use when you want to prevent accidental data loss
+- **SET NULL**: Use when relationship is optional and you want to preserve the record
+
+---
+
+## Best Practices
+
+1. **Always use transactions** when inserting related data across multiple tables
+2. **Use prepared statements** in application code to prevent SQL injection
+3. **Regularly backup** the database before major operations
+4. **Monitor index usage** and add/remove as query patterns evolve
+5. **Use LEFT JOIN** when related data might not exist (e.g., timesheets without projects)
+6. **Use INNER JOIN** when related data must exist (e.g., staff with accounts)
+
+---
+
+## Troubleshooting
+
+### Cannot Delete Record
+**Error:** "update or delete on table violates foreign key constraint"
+
+**Solution:** Check what's referencing the record:
+```sql
+-- Find tables referencing staff_accounts
+SELECT 
+    tc.table_name, 
+    kcu.column_name
+FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu 
+    ON tc.constraint_name = kcu.constraint_name
+WHERE tc.constraint_type = 'FOREIGN KEY'
+AND tc.table_name = 'staff_accounts';
+```
+
+### Hours Not Calculating
+**Issue:** The `hours_spent` field in timesheets is not updating
+
+**Solution:** This is a GENERATED column - it updates automatically. Verify check-in is before check-out:
+```sql
+SELECT check_in_time, check_out_time, hours_spent
+FROM timesheets
+WHERE timesheet_id = 1;
+```
+
+---
+
+## License & Contact
+This database schema is designed for internal timesheet management systems.
+
+For questions or modifications, contact your database administrator.
+
+**Last Updated:** February 2026

@@ -41,7 +41,7 @@ export const getTimesheetById = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const timesheet = await timesheetService.getTimesheetById(parseInt(id));
 
   if (!timesheet) {
@@ -79,7 +79,7 @@ export const updateTimesheet = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const timesheetData = req.body;
 
   const updatedTimesheet = await timesheetService.updateTimesheet(
@@ -106,7 +106,7 @@ export const deleteTimesheet = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const deleted = await timesheetService.deleteTimesheet(parseInt(id));
 
   if (!deleted) {
@@ -127,7 +127,7 @@ export const getStaffHours = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { staffId } = req.params;
+  const staffId = String(req.params.staffId);
   const { startDate, endDate } = req.query;
 
   const hours = await timesheetService.getStaffHoursSummary(
@@ -150,7 +150,7 @@ export const getProjectHours = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { projectId } = req.params;
+  const projectId = String(req.params.projectId);
 
   const hours = await timesheetService.getProjectHoursSummary(
     parseInt(projectId),

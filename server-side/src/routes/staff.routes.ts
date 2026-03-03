@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { body, param } from "express-validator";
 import * as staffController from "../controllers/staff.controller";
-import { asyncHandler, validate } from "../middleware/index";
+import {
+  asyncHandler,
+  authenticate,
+  authorize,
+  validate,
+} from "../middleware/index";
 
 const router = Router();
 
@@ -85,18 +90,24 @@ router.get(
 
 router.post(
   "/",
+  authenticate,
+  authorize("Admin", "Manager"),
   validate(createStaffValidation),
   asyncHandler(staffController.createStaff),
 );
 
 router.put(
   "/:id",
+  authenticate,
+  authorize("Admin", "Manager"),
   validate(updateStaffValidation),
   asyncHandler(staffController.updateStaff),
 );
 
 router.delete(
   "/:id",
+  authenticate,
+  authorize("Admin", "Manager"),
   validate(idValidation),
   asyncHandler(staffController.deleteStaff),
 );

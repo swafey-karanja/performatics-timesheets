@@ -31,7 +31,7 @@ export const getClientById = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const client = await clientService.getClientById(parseInt(id));
 
   if (!client) {
@@ -70,7 +70,7 @@ export const updateClient = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const clientData = req.body;
 
   const updatedClient = await clientService.updateClient(
@@ -97,7 +97,7 @@ export const deleteClient = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const deleted = await clientService.deleteClient(parseInt(id));
 
   if (!deleted) {
@@ -118,7 +118,7 @@ export const getClientsBySector = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { sector } = req.params;
+  const sector = String(req.params.sector);
   const clients = await clientService.getClientsBySector(sector);
 
   res.status(200).json({
@@ -136,7 +136,7 @@ export const getClientsByCategory = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { category } = req.params;
+  const category = String(req.params.category);
   const clients = await clientService.getClientsByCategory(category);
 
   res.status(200).json({
@@ -154,7 +154,7 @@ export const getClientProjects = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
 
   // First check if client exists
   const client = await clientService.getClientById(parseInt(id));

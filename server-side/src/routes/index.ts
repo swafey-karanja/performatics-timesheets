@@ -5,6 +5,7 @@ import healthRoutes from "./health.routes";
 import clientRoutes from "./client.routes";
 import departmentRoutes from "./department.routes";
 import projectRoutes from "./projects.routes";
+import authRoutes from "./auth.routes";
 
 const router = Router();
 
@@ -34,5 +35,6 @@ router.use("/api/timesheets", timesheetRoutes);
 router.use("/api/clients", clientRoutes);
 router.use("/api/departments", departmentRoutes);
 router.use("/api/projects", projectRoutes);
+router.use("/api/auth", authRoutes);
 
 export default router;

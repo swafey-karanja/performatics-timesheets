@@ -1,5 +1,6 @@
-import { Pool, PoolConfig } from "pg";
+import { Pool, PoolConfig, PoolClient, QueryResult, QueryResultRow } from "pg";
 import * as dotenv from "dotenv";
+import { logger } from "../utils/logger";
 
 // Load environment variables
 dotenv.config();
@@ -78,6 +79,13 @@ const createPool = (): Pool => {
     process.exit(-1);
   });
 
+  // Log successful connections (only in development)
+  if (process.env.NODE_ENV === "development") {
+    pool.on("connect", () => {
+      console.log("✅ New database client connected to the pool");
+    });
+  }
+
   return pool;
 };
 
@@ -103,7 +111,161 @@ export const testConnection = async (): Promise<boolean> => {
 /**
  * Close all database connections
  */
+let isPoolClosed = false;
+
 export const closePool = async (): Promise<void> => {
+  if (isPoolClosed) return; // 👈 prevents the second call from erroring
+  isPoolClosed = true;
+
   await pool.end();
-  console.log("Database pool closed");
+  logger.info("Database pool closed");
 };
+
+/**
+ * Execute a callback function within a database transaction
+ * Automatically handles BEGIN, COMMIT, and ROLLBACK
+ *
+ * @param callback - Function that performs database operations with the client
+ * @returns Promise resolving to the callback's return value
+ * @throws Will throw an error if the transaction fails
+ *
+ * @example
+ * const result = await withTransaction(async (client) => {
+ *   const user = await client.query('INSERT INTO users...');
+ *   const account = await client.query('INSERT INTO accounts...');
+ *   return { user, account };
+ * });
+ */
+export async function withTransaction<T>(
+  callback: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await callback(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Transaction rolled back due to error:", error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Type-safe query helper that executes a query with optional parameters
+ *
+ * @param text - SQL query string
+ * @param params - Optional array of query parameters
+ * @returns Promise resolving to the query result
+ *
+ * @example
+ * const result = await query<User>(
+ *   'SELECT * FROM users WHERE id = $1',
+ *   [userId]
+ * );
+ * const users = result.rows;
+ */
+export async function query<T extends QueryResultRow = any>(
+  text: string,
+  params?: any[],
+): Promise<QueryResult<T>> {
+  const start = Date.now();
+  try {
+    const result = await pool.query<T>(text, params);
+    const duration = Date.now() - start;
+
+    // Log slow queries (> 1 second) in development
+    if (process.env.NODE_ENV === "development" && duration > 1000) {
+      console.warn(`⚠️  Slow query detected (${duration}ms):`, text);
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Query error:", error);
+    console.error("Query:", text);
+    console.error("Params:", params);
+    throw error;
+  }
+}
+
+/**
+ * Execute a query with a specific client (useful within transactions)
+ *
+ * @param client - The database client to use
+ * @param text - SQL query string
+ * @param params - Optional array of query parameters
+ * @returns Promise resolving to the query result
+ *
+ * @example
+ * await withTransaction(async (client) => {
+ *   await queryWithClient(client, 'INSERT INTO users...', [name]);
+ *   await queryWithClient(client, 'INSERT INTO accounts...', [userId]);
+ * });
+ */
+export async function queryWithClient<T extends QueryResultRow = any>(
+  client: PoolClient,
+  text: string,
+  params?: any[],
+): Promise<QueryResult<T>> {
+  try {
+    return await client.query<T>(text, params);
+  } catch (error) {
+    console.error("Query error:", error);
+    console.error("Query:", text);
+    console.error("Params:", params);
+    throw error;
+  }
+}
+
+/**
+ * Check if the database connection is healthy
+ *
+ * @returns Promise resolving to true if healthy, false otherwise
+ */
+export const isHealthy = async (): Promise<boolean> => {
+  try {
+    const result = await query("SELECT 1 as health_check");
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error("Database health check failed:", error);
+    return false;
+  }
+};
+
+/**
+ * Get current pool statistics
+ *
+ * @returns Object containing pool statistics
+ */
+export const getPoolStats = () => {
+  return {
+    totalCount: pool.totalCount,
+    idleCount: pool.idleCount,
+    waitingCount: pool.waitingCount,
+  };
+};
+
+/**
+ * Log pool statistics (useful for debugging)
+ */
+export const logPoolStats = (): void => {
+  const stats = getPoolStats();
+  console.log("📊 Database Pool Statistics:");
+  console.log(`   Total connections: ${stats.totalCount}`);
+  console.log(`   Idle connections: ${stats.idleCount}`);
+  console.log(`   Waiting requests: ${stats.waitingCount}`);
+};
+
+// Graceful shutdown handlers
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received, closing database pool...");
+  await closePool();
+});
+
+process.on("SIGINT", async () => {
+  console.log("SIGINT received, closing database pool...");
+  await closePool();
+});

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { body, param, query } from "express-validator";
 import * as timesheetController from "../controllers/timesheets.controller";
-import { asyncHandler, validate } from "../middleware/index";
+import { asyncHandler, authenticate, validate } from "../middleware/index";
 
 const router = Router();
 
@@ -130,24 +130,28 @@ router.get(
 
 router.post(
   "/",
+  authenticate,
   validate(createTimesheetValidation),
   asyncHandler(timesheetController.createTimesheet),
 );
 
 router.put(
   "/:id",
+  authenticate,
   validate(updateTimesheetValidation),
   asyncHandler(timesheetController.updateTimesheet),
 );
 
 router.delete(
   "/:id",
+  authenticate,
   validate(idValidation),
   asyncHandler(timesheetController.deleteTimesheet),
 );
 
 router.get(
   "/staff/:staffId/hours",
+  authenticate,
   validate(idValidation),
   asyncHandler(timesheetController.getStaffHours),
 );

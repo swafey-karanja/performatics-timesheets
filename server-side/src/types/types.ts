@@ -37,34 +37,11 @@ export type ClientCategory = "Converted" | "Prospect";
 // Project types
 export type ProjectCluster = "Stone" | "Ballast" | "Sand" | "Water";
 
+export type UserRole = "Admin" | "Manager" | "Staff";
+
 /**
  * Database table interfaces
  */
-
-export interface StaffDetails {
-  staff_id: number;
-  staff_name: string;
-  work_type: WorkType;
-  staff_role: string;
-  gender?: Gender;
-  personal_email: string;
-  phone_number?: string;
-  date_joined: Date;
-  created_at?: Date;
-  updated_at?: Date;
-}
-
-export interface StaffAccount {
-  account_id: number;
-  staff_id: number;
-  username: string;
-  work_email: string;
-  status: AccountStatus;
-  department_id?: number;
-  date_registered: Date;
-  created_at?: Date;
-  updated_at?: Date;
-}
 
 export interface Department {
   department_id: number;
@@ -158,4 +135,55 @@ export interface StaffQueryParams extends PaginationParams {
   workType?: WorkType;
   departmentId?: number;
   status?: AccountStatus;
+}
+
+// Auth & Account Types
+export interface StaffAccount {
+  account_id: number;
+  staff_id: number;
+  username: string;
+  work_email: string;
+  password_hash: string;
+  status: "Active" | "Suspended";
+  role: UserRole;
+  department_id: number | null;
+  date_registered: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface CreateAccountInput {
+  staff_id: number;
+  username: string;
+  work_email: string;
+  password: string;
+  department_id?: number;
+  role?: UserRole;
+}
+
+export interface LoginInput {
+  username?: string;
+  work_email?: string;
+  password: string;
+}
+
+export interface JwtPayload {
+  account_id: number;
+  staff_id: number;
+  username: string;
+  work_email: string;
+  department_id: number | null;
+  status: "Active" | "Suspended";
+  role: UserRole;
+}
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: string;
+}
+
+export interface AuthResponse {
+  account: Omit<StaffAccount, "password_hash">;
+  tokens: AuthTokens;
 }

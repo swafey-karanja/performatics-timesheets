@@ -139,3 +139,32 @@ export interface TimesheetCreateData {
   check_in_time: string; // Format: HH:mm
   check_out_time: string; // Format: HH:mm
 }
+
+export interface LoginInput {
+  username?: string;
+  work_email?: string;
+  password: string;
+}
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: string;
+}
+
+export interface LoginResponse {
+  success: boolean;
+  message: string;
+  data: {
+    account: {
+      account_id: number;
+      staff_id: number;
+      username: string;
+      work_email: string;
+      role: string;
+      status: string;
+      department_id: number | null;
+    };
+    tokens: AuthTokens;
+  };
+}

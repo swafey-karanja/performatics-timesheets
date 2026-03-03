@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { body, param } from "express-validator";
 import * as projectController from "../controllers/projects.controller";
-import { asyncHandler, validate } from "../middleware";
+import { asyncHandler, authenticate, authorize, validate } from "../middleware";
 
 const router = Router();
 
@@ -102,18 +102,24 @@ router.get(
 
 router.post(
   "/",
+  authenticate,
+  authorize("Admin", "Manager"),
   validate(createProjectValidation),
   asyncHandler(projectController.createProject),
 );
 
 router.put(
   "/:id",
+  authenticate,
+  authorize("Admin", "Manager"),
   validate(updateProjectValidation),
   asyncHandler(projectController.updateProject),
 );
 
 router.delete(
   "/:id",
+  authenticate,
+  authorize("Admin", "Manager"),
   validate(idValidation),
   asyncHandler(projectController.deleteProject),
 );

@@ -31,7 +31,7 @@ export const getDepartmentById = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const department = await departmentService.getDepartmentById(parseInt(id));
 
   if (!department) {
@@ -71,7 +71,7 @@ export const updateDepartment = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const departmentData = req.body;
 
   const updatedDepartment = await departmentService.updateDepartment(
@@ -98,7 +98,7 @@ export const deleteDepartment = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const deleted = await departmentService.deleteDepartment(parseInt(id));
 
   if (!deleted) {
@@ -119,7 +119,7 @@ export const getDepartmentStaff = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
 
   // First check if department exists
   const department = await departmentService.getDepartmentById(parseInt(id));

@@ -32,7 +32,7 @@ export const getStaffById = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const staff = await staffService.getStaffById(parseInt(id));
 
   if (!staff) {
@@ -71,7 +71,7 @@ export const updateStaff = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const staffData = req.body;
 
   const updatedStaff = await staffService.updateStaff(parseInt(id), staffData);
@@ -95,7 +95,7 @@ export const deleteStaff = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const deleted = await staffService.deleteStaff(parseInt(id));
 
   if (!deleted) {
@@ -116,7 +116,7 @@ export const getStaffByWorkType = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { type } = req.params;
+  const type = String(req.params.type);
   const staff = await staffService.getStaffByWorkType(type);
 
   res.status(200).json({

@@ -31,7 +31,7 @@ export const getProjectById = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const project = await projectService.getProjectById(parseInt(id));
 
   if (!project) {
@@ -70,7 +70,7 @@ export const updateProject = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const projectData = req.body;
 
   const updatedProject = await projectService.updateProject(
@@ -97,7 +97,7 @@ export const deleteProject = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const deleted = await projectService.deleteProject(parseInt(id));
 
   if (!deleted) {
@@ -118,7 +118,7 @@ export const getProjectsByCluster = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { cluster } = req.params;
+  const cluster = String(req.params.cluster);
   const projects = await projectService.getProjectsByCluster(cluster);
 
   res.status(200).json({
@@ -153,7 +153,7 @@ export const getProjectsByAccountManager = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { accountManagerId } = req.params;
+  const accountManagerId = String(req.params.accountManagerId);
   const projects = await projectService.getProjectsByAccountManager(
     parseInt(accountManagerId),
   );
@@ -173,7 +173,7 @@ export const getProjectTimesheets = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
 
   // First check if project exists
   const project = await projectService.getProjectById(parseInt(id));
@@ -198,7 +198,7 @@ export const getProjectStaffBreakdown = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
 
   // First check if project exists
   const project = await projectService.getProjectById(parseInt(id));

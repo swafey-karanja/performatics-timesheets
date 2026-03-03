@@ -1,7 +1,12 @@
+import dotenv from "dotenv";
+dotenv.config({
+  path: process.env.NODE_ENV === "production" ? ".env.production" : ".env",
+});
+
 import express, { Application } from "express";
 import cors from "cors";
 import helmet from "helmet";
-import compression from "compression";
+// import compression from "compression";
 import { testConnection, closePool } from "./config/database";
 import routes from "./routes";
 import {
@@ -44,7 +49,7 @@ class TimesheetServer {
     );
 
     // Compression middleware
-    this.app.use(compression());
+    // this.app.use(compression());
 
     // Body parsing middleware
     this.app.use(express.json({ limit: "10mb" }));
@@ -144,6 +149,7 @@ class TimesheetServer {
       return;
     }
 
+    this.isRunning = false;
     logger.info("🛑 Shutting down server...");
 
     try {
