@@ -1,0 +1,114 @@
+# JWT Authentication — Performatics Timesheet System
+
+## Overview
+
+This system uses JSON Web Tokens (JWT) to authenticate users. On login, the server issues two tokens:
+
+- **Access Token** — short-lived (8h), sent with every API request
+- **Refresh Token** — long-lived (7d), used only to renew an expired access token
+
+---
+
+## User Roles
+
+Every account has one of three roles, which controls what they can do:
+
+| Role    | View | Create | Update | Delete | Register Accounts |
+| ------- | :--: | :----: | :----: | :----: | :---------------: |
+| Staff   |  ✅  |   ❌   |   ❌   |   ❌   |        ❌         |
+| Manager |  ✅  |   ✅   |   ✅   |   ❌   |        ❌         |
+| Admin   |  ✅  |   ✅   |   ✅   |   ✅   |        ✅         |
+
+---
+
+## Auth Endpoints
+
+| Endpoint             | Method | Auth Required | Description                           |
+| -------------------- | ------ | ------------- | ------------------------------------- |
+| `/api/auth/login`    | POST   | None          | Log in and receive tokens             |
+| `/api/auth/register` | POST   | Admin token   | Create a new staff account            |
+| `/api/auth/refresh`  | POST   | None          | Get a new access token                |
+| `/api/auth/me`       | GET    | Bearer token  | Get current user's account details    |
+| `/api/auth/logout`   | POST   | Bearer token  | Confirm logout (client clears tokens) |
+
+---
+
+## How to Use
+
+### 1. Login
+
+```http
+POST /api/auth/login
+{ "username": "john_doe", "password": "Secure@123" }
+```
+
+Returns `accessToken`, `refreshToken`, and account details.
+
+### 2. Make Authenticated Requests
+
+Include the access token in the `Authorization` header:
+
+```
+Authorization: Bearer <accessToken>
+```
+
+### 3. Refresh an Expired Token
+
+```http
+POST /api/auth/refresh
+{ "refreshToken": "<refreshToken>" }
+```
+
+### 4. Logout
+
+Delete both tokens from localStorage and cookies on the client side.
+
+---
+
+## Registering the First Admin
+
+Since `/api/auth/register` requires an Admin token, the first Admin must be inserted directly into the database:
+
+1. Generate a bcrypt hash for the password:
+
+   ```bash
+   node -e "const b = require('bcryptjs'); b.hash('YourPassword@123', 12).then(h => console.log(h))"
+   ```
+
+2. Insert the admin account via SQL:
+
+   ```sql
+   INSERT INTO staff_accounts (staff_id, username, work_email, password_hash, role, status)
+   VALUES (1, 'super_admin', 'admin@company.com', '<hash>', 'Admin', 'Active');
+   ```
+
+3. Log in via `/api/auth/login` to receive the Admin token, then use it to register all future accounts through the API.
+
+---
+
+## Environment Variables
+
+Add these to your `.env` file:
+
+```env
+JWT_SECRET=your_long_random_secret
+JWT_EXPIRES_IN=8h
+JWT_REFRESH_SECRET=your_long_random_refresh_secret
+JWT_REFRESH_EXPIRES_IN=7d
+BCRYPT_ROUNDS=12
+```
+
+> ⚠️ Never commit `.env` files to version control.
+
+---
+
+## Files Added
+
+| File                                 | Purpose                                   |
+| ------------------------------------ | ----------------------------------------- |
+| `src/utils/jwt.ts`                   | Generate and verify tokens                |
+| `src/services/auth.service.ts`       | Login, register, refresh logic            |
+| `src/middleware/auth.middleware.ts`  | `authenticate` and `authorize` middleware |
+| `src/controllers/auth.controller.ts` | HTTP request handlers                     |
+| `src/routes/auth.routes.ts`          | Route definitions                         |
+| `src/types/types.ts`                 | Auth-related TypeScript types             |
