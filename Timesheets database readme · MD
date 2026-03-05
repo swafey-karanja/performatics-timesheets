@@ -161,6 +161,7 @@ CREATE TABLE projects (
     start_date DATE NOT NULL,
     end_date DATE,
     cluster VARCHAR(20) NOT NULL CHECK (cluster IN ('Stone', 'Ballast', 'Sand', 'Water')),
+    account_manager_id INTEGER NOT NULL REFERENCES staff_details(staff_id) ON DELETE RESTRICT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -168,6 +169,7 @@ CREATE TABLE projects (
 CREATE INDEX idx_projects_client_id ON projects(client_id);
 CREATE INDEX idx_projects_cluster ON projects(cluster);
 CREATE INDEX idx_projects_dates ON projects(start_date, end_date);
+CREATE INDEX idx_projects_account_manager ON projects(account_manager_id);
 ```
 
 **Key Fields:**

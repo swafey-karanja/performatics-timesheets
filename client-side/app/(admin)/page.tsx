@@ -1,8 +1,8 @@
-import BasicModal from "@/components/Modal";
+
 import React from "react";
 
-const page = () => {
-  return <div clas><BasicModal /></div>;
+const DashboardPage = () => {
+  return <div className="">Dashboard</div>;
 };
 
-export default page;
+export default DashboardPage;

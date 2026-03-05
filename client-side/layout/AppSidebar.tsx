@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
-import Grid from "@mui/material/Grid";
 import GroupsIcon from "@mui/icons-material/Groups";
 import FolderIcon from "@mui/icons-material/Folder";
 import DescriptionIcon from "@mui/icons-material/Description";
@@ -16,6 +15,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import SignalCellularAltIcon from "@mui/icons-material/SignalCellularAlt";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
+import SpaceDashboardIcon from '@mui/icons-material/SpaceDashboard';
 
 type NavItem = {
   name: string;
@@ -26,7 +26,7 @@ type NavItem = {
 
 const dashBoardItems: NavItem[] = [
   {
-    icon: <Grid />,
+    icon: <SpaceDashboardIcon />,
     name: "Dashboard",
     path: "/",
   },
@@ -35,8 +35,8 @@ const dashBoardItems: NavItem[] = [
 const navItems: NavItem[] = [
   {
     icon: <PersonIcon />,
-    name: "Clients",
-    path: "/clients",
+    name: "Timesheets",
+    path: "/timesheets",
   },
   {
     icon: <GroupsIcon />,
@@ -234,10 +234,16 @@ const AppSidebar: React.FC = () => {
     </ul>
   );
 
-  const [openSubmenu, setOpenSubmenu] = useState<{
-    type: "dashboard" | "main" | "aiFeatures" | "analytics" | "others";
-    index: number;
-  } | null>(null);
+  // const [openSubmenu, setOpenSubmenu] = useState<{
+  //   type: "dashboard" | "main" | "aiFeatures" | "analytics" | "others";
+  //   index: number;
+  // } | null>(null);
+
+  const [manualSubmenu, setManualSubmenu] = useState<{
+  type: "dashboard" | "main" | "aiFeatures" | "analytics" | "others";
+  index: number;
+} | null>(null);
+
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
     {},
   );
@@ -246,45 +252,27 @@ const AppSidebar: React.FC = () => {
   // const isActive = (path: string) => path === pathname;
   const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
-  useEffect(() => {
-    // Check if the current path matches any submenu item
-    let submenuMatched = false;
-    ["main", "others"].forEach((menuType) => {
-      const items =
-        menuType === "dashboard"
-          ? dashBoardItems
-          : menuType === "main"
-            ? navItems
-            : menuType === "aiFeatures"
-              ? aiItems
-              : menuType === "analytics"
-                ? analyticsItems
-                : othersItems;
-      items.forEach((nav, index) => {
-        if (nav.subItems) {
-          nav.subItems.forEach((subItem) => {
-            if (isActive(subItem.path)) {
-              setOpenSubmenu({
-                type: menuType as
-                  | "dashboard"
-                  | "main"
-                  | "aiFeatures"
-                  | "analytics"
-                  | "others",
-                index,
-              });
-              submenuMatched = true;
-            }
-          });
-        }
-      });
-    });
+  const menuSections: {
+  type: "dashboard" | "main" | "aiFeatures" | "analytics" | "others";
+  items: NavItem[];
+}[] = [
+  { type: "dashboard", items: dashBoardItems },
+  { type: "main", items: navItems },
+  { type: "aiFeatures", items: aiItems },
+  { type: "analytics", items: analyticsItems },
+  { type: "others", items: othersItems },
+];
 
-    // If no submenu item matches, close the open submenu
-    if (!submenuMatched) {
-      setOpenSubmenu(null);
+const openSubmenu = (() => {
+  for (const { type, items } of menuSections) {
+    for (let index = 0; index < items.length; index++) {
+      if (items[index].subItems?.some((s) => isActive(s.path))) {
+        return { type, index };
+      }
     }
-  }, [pathname, isActive]);
+  }
+  return manualSubmenu;
+})();
 
   useEffect(() => {
     // Set the height of the submenu items when the submenu is opened
@@ -300,20 +288,16 @@ const AppSidebar: React.FC = () => {
   }, [openSubmenu]);
 
   const handleSubmenuToggle = (
-    index: number,
-    menuType: "dashboard" | "main" | "aiFeatures" | "analytics" | "others",
-  ) => {
-    setOpenSubmenu((prevOpenSubmenu) => {
-      if (
-        prevOpenSubmenu &&
-        prevOpenSubmenu.type === menuType &&
-        prevOpenSubmenu.index === index
-      ) {
-        return null;
-      }
-      return { type: menuType, index };
-    });
-  };
+  index: number,
+  menuType: "dashboard" | "main" | "aiFeatures" | "analytics" | "others",
+) => {
+  setManualSubmenu((prev) => {
+    if (prev && prev.type === menuType && prev.index === index) {
+      return null;
+    }
+    return { type: menuType, index };
+  });
+};
 
   return (
     <aside

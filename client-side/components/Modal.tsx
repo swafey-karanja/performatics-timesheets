@@ -43,12 +43,13 @@ const style = {
   maxHeight: "90vh",
   overflow: "auto",
   bgcolor: "background.paper",
-  border: "2px solid #000",
+  border: "1px solid",
+  borderColor: "divider",
   boxShadow: 24,
   p: 4,
 };
 
-export default function BasicModal() {
+export default function TimesheetsModal() {
   const [open, setOpen] = React.useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => {
@@ -308,7 +309,18 @@ export default function BasicModal() {
 
   return (
     <div>
-      <Button onClick={handleOpen} variant="contained" size="large">
+      <Button
+        onClick={handleOpen}
+        variant="contained"
+        size="large"
+        sx={{
+          backgroundColor: "#ef4444", // red-500
+          color: "#ffffff",          // text color
+          "&:hover": {
+            backgroundColor: "#dc2626", // darker red for hover (red-600)
+          },
+        }}
+      >
         Create New Task
       </Button>
       <Modal
@@ -317,7 +329,10 @@ export default function BasicModal() {
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
       >
-        <Box sx={style} className="flex flex-col gap-6">
+        <Box
+          sx={style}
+          className="flex flex-col gap-6 bg-white! dark:bg-gray-300! border-gray-200! dark:border-gray-800!"
+        >
           {/* Success/Error Messages */}
           {submitSuccess && (
             <Alert severity="success" sx={{ mb: 2 }}>
@@ -341,7 +356,7 @@ export default function BasicModal() {
                 htmlFor="task"
                 className="block text-md font-semibold text-gray-700 ml-2 mb-1"
               >
-                Type of Task <span className="text-red-500">*</span>
+                Type of Task <span className="text-brand-500">*</span>
               </label>
               <FormControl required sx={{ m: 1, minWidth: 280 }}>
                 <InputLabel id="task-label">Type of task</InputLabel>
@@ -371,7 +386,7 @@ export default function BasicModal() {
                 htmlFor="task-station"
                 className="block text-md font-semibold text-gray-700 ml-2 mb-1"
               >
-                Task Station <span className="text-red-500">*</span>
+                Task Station <span className="text-brand-500">*</span>
               </label>
               <FormControl required sx={{ m: 1, minWidth: 280 }}>
                 <InputLabel id="task-station-label">Task Station</InputLabel>
@@ -396,7 +411,7 @@ export default function BasicModal() {
                 htmlFor="department"
                 className="block text-md font-semibold text-gray-700 ml-2 mb-1"
               >
-                Department <span className="text-red-500">*</span>
+                Department <span className="text-brand-500">*</span>
               </label>
               <FormControl required sx={{ m: 1, minWidth: 280, maxWidth: 280 }}>
                 <InputLabel id="department-label">Department</InputLabel>
@@ -429,7 +444,7 @@ export default function BasicModal() {
                 htmlFor="task-description"
                 className="block text-md font-semibold text-gray-700 ml-2 mb-1"
               >
-                Task Description <span className="text-red-500">*</span>
+                Task Description <span className="text-brand-500">*</span>
               </label>
               <TextField
                 id="task-description"
@@ -451,7 +466,7 @@ export default function BasicModal() {
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <Box sx={{ flex: 1, position: "relative" }}>
                 <label className="block text-md font-semibold text-gray-700 ml-2 mb-1">
-                  Date <span className="text-red-500">*</span>
+                  Date <span className="text-brand-500">*</span>
                 </label>
                 <label className="block text-xs font-medium text-gray-600 ml-2 mb-1">
                   Task Date
@@ -480,7 +495,7 @@ export default function BasicModal() {
 
               <Box sx={{ flex: 1 }}>
                 <label className="block text-md font-semibold text-gray-700 ml-2 mb-1">
-                  Time Range <span className="text-red-500">*</span>
+                  Time Range <span className="text-brand-500">*</span>
                 </label>
                 <Box sx={{ display: "flex", gap: "1rem" }}>
                   <Box sx={{ flex: 1 }}>
@@ -524,7 +539,7 @@ export default function BasicModal() {
                 htmlFor="client"
                 className="block text-md font-semibold text-gray-700 ml-2 mb-1"
               >
-                Client <span className="text-red-500">*</span>
+                Client <span className="text-brand-500">*</span>
               </label>
               <FormControl
                 required
@@ -693,7 +708,7 @@ export default function BasicModal() {
                   htmlFor="project"
                   className="block text-md font-semibold text-gray-700 ml-2 mb-1"
                 >
-                  Project <span className="text-red-500">*</span>
+                  Project <span className="text-brand-500">*</span>
                 </label>
                 <FormControl
                   required
@@ -749,7 +764,6 @@ export default function BasicModal() {
             className="flex justify-center"
             sx={{ mt: 2 }}
           >
-            {/* Cancel Button with red border */}
             <Button
               onClick={handleClose}
               variant="outlined"
@@ -757,20 +771,14 @@ export default function BasicModal() {
               disabled={isSubmitting}
               sx={{
                 width: "150px",
-                borderColor: "red",
-                color: "white",
-                backgroundColor: "red",
-                "&:hover": {
-                  color: "white",
-                  borderColor: "darkred",
-                  backgroundColor: "darkred", // subtle red hover effect
-                },
+                borderColor: "#f87171",        // softer red
+                color: "#ffffff",
+                backgroundColor: "#D32F2F",    // light red background
               }}
             >
               Cancel
             </Button>
 
-            {/* Submit Button with red background and matching spinner */}
             <Button
               onClick={handleSubmit}
               size="large"
@@ -783,8 +791,7 @@ export default function BasicModal() {
               }
               sx={{
                 width: "250px",
-                backgroundColor: "green",
-                "&:hover": { backgroundColor: "darkgreen" }, // slightly less dark than default
+                backgroundColor: "#15803d",   // softer green
               }}
             >
               {isSubmitting ? "Creating..." : "Create Task"}

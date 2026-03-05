@@ -26,7 +26,7 @@ export default function UserDropdown() {
           <Image
             width={44}
             height={44}
-            src="/owner.jpg"
+            src="/user/owner.jpg"
             alt="User"
           />
         </span>
