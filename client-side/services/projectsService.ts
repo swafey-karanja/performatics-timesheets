@@ -1,3 +1,4 @@
+import { getAuthHeaders } from "@/lib/utils";
 import { Project } from "@/types/types";
 
 const API_BASE_URL =
@@ -10,9 +11,7 @@ export async function getAllProjects(): Promise<Project[]> {
   try {
     const response = await fetch(`${API_BASE_URL}/projects`, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: getAuthHeaders()
     });
 
     if (!response.ok) {

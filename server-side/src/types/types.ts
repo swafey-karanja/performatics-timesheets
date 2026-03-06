@@ -69,7 +69,7 @@ export interface Project {
   start_date: Date;
   end_date?: Date;
   cluster: ProjectCluster;
-  account_manager: number;
+  account_manager_id: number;
   created_at?: Date;
   updated_at?: Date;
 }

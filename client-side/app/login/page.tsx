@@ -1,11 +1,11 @@
 import LoginForm from "@/components/LoginForm";
-import React from "react";
+import React, { Suspense } from "react";
 
 const LoginPage = () => {
   return (
-    <div>
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center" />}>
       <LoginForm />
-    </div>
+    </Suspense>
   );
 };
 

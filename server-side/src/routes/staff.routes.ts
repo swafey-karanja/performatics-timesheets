@@ -80,10 +80,11 @@ const updateStaffValidation = [
 const idValidation = [param("id").isInt({ min: 1 }).withMessage("Invalid ID")];
 
 // Routes
-router.get("/", asyncHandler(staffController.getAllStaff));
+router.get("/", authenticate, asyncHandler(staffController.getAllStaff));
 
 router.get(
   "/:id",
+  authenticate,
   validate(idValidation),
   asyncHandler(staffController.getStaffById),
 );
@@ -114,6 +115,7 @@ router.delete(
 
 router.get(
   "/work-type/:type",
+  authenticate,
   asyncHandler(staffController.getStaffByWorkType),
 );
 

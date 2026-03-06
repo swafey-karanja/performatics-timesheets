@@ -20,6 +20,7 @@ import { MobileTimePicker } from "@mui/x-date-pickers/MobileTimePicker";
 import Stack from "@mui/material/Stack";
 import CircularProgress from "@mui/material/CircularProgress";
 import {
+  ClientOption,
   // Client,
   // DEPARTMENT_OPTIONS,
   STRATEGIC_PILLARS,
@@ -88,29 +89,28 @@ export default function TimesheetsModal() {
   // Fetch Hooks
   const {
     clients,
-    isLoading: clientsLoading,
-    error: clientsError,
-    mutate: clientsMutate,
+    loading: clientsLoading,
+    // error: clientsError,
   } = useFetchClients();
 
   const {
     projects: clientProjects,
-    isLoading: clientProjectLoading,
-    error: clientProjectsError,
+    // isLoading: clientProjectLoading,
+    // error: clientProjectsError,
   } = useClientProjects(clientId);
 
-  const { departments, isLoading, error } = useDepartments();
+  const { departments } = useDepartments();
   const {
     submit: submitTimesheet,
-    isLoading: isSubmittingTimesheet,
-    error: timesheetError,
+    // isLoading: isSubmittingTimesheet,
+    // error: timesheetError,
   } = useCreateTimesheet();
 
   // console.log({ departments });
   // console.log({ clientProjects });
 
   const clientNames = React.useMemo(() => {
-    return clients.map((c) => c.client_name);
+    return clients?.map((c: ClientOption) => c.client_name);
   }, [clients]);
 
   const clientProjectNames = React.useMemo(() => {
@@ -152,7 +152,7 @@ export default function TimesheetsModal() {
 
     // ✅ Find the client object and extract the ID
     const selectedClient = clients.find(
-      (c) => c.client_name === selectedClientName,
+      (c: ClientOption) => c.client_name === selectedClientName,
     );
     setClientId(selectedClient?.client_id ?? null);
 
@@ -247,7 +247,7 @@ export default function TimesheetsModal() {
     setIsSubmitting(true);
 
     try {
-      const selectedClient = clients.find((c) => c.client_name === client);
+      const selectedClient = clients.find((c: ClientOption) => c.client_name === client);
       const selectedProject = clientProjects.find(
         (p) => p.project_name === project,
       );
@@ -560,12 +560,14 @@ export default function TimesheetsModal() {
                       <CircularProgress size={20} sx={{ mr: 1 }} />
                       Loading clients...
                     </MenuItem>
-                  ) : clientsError ? (
-                    <MenuItem disabled>Error loading clients</MenuItem>
-                  ) : clientNames.length === 0 ? (
+                  ) 
+                  // : clientsError ? (
+                  //   <MenuItem disabled>Error loading clients</MenuItem>
+                  // ) 
+                  : clientNames?.length === 0 ? (
                     <MenuItem disabled>No clients available</MenuItem>
                   ) : (
-                    clientNames.map((clientName) => (
+                    clientNames?.map((clientName) => (
                       <MenuItem
                         value={clientName}
                         key={clientName}

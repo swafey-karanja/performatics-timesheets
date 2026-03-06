@@ -1,241 +1,153 @@
+/**
+ * Timesheet Service
+ *
+ * Business logic only — no raw SQL, no type definitions, no query parsing.
+ * Those concerns live in:
+ *   timesheet.types.ts   — interfaces & types
+ *   timesheet.queries.ts — SQL strings & WHERE clause builder
+ *   timesheet.helpers.ts — validation, normalisation, query parsing
+ */
+
 import { pool } from "../config/database";
 import { ApiError } from "../middleware";
 
-/**
- * Timesheet Service
- * Contains business logic for timesheet operations
- */
+import {
+  TimesheetEntry,
+  TimesheetWithDetails,
+  TimesheetQueryOptions,
+  PaginatedTimesheetResult,
+  StaffHoursSummary,
+  ProjectHoursSummary,
+} from "../types/timesheets.types";
 
-export interface TimesheetEntry {
-  timesheet_id?: number;
-  staff_id: number;
-  task_description: string;
-  task_type: string;
-  task_station: "Office" | "Field" | "Remote";
-  department_id: number;
-  date: string;
-  check_in_time: string;
-  check_out_time: string;
-  hours_spent?: number;
-  client_id?: number;
-  project_id?: number;
-}
+import {
+  TIMESHEET_SELECT,
+  TIMESHEET_FROM,
+  QUERIES,
+  buildWhereClause,
+} from "../queries/timesheet.queries";
 
-export interface TimesheetWithDetails extends TimesheetEntry {
-  staff_name?: string;
-  department_name?: string;
-  client_name?: string;
-  project_name?: string;
-}
+import {
+  validateTimesheetEntry,
+  resolveSortColumn,
+  normalisePagination,
+  buildUpdateClause,
+} from "../utils/timesheet.helpers";
 
-export interface TimesheetFilters {
-  startDate?: string;
-  endDate?: string;
-  staffId?: number;
-  departmentId?: number;
-}
+// ─── Read ─────────────────────────────────────────────────────────────────────
 
 /**
- * Get timesheets with optional filters
+ * Returns a paginated, filtered, sorted, and searchable list of timesheets.
+ * @route GET /api/timesheets
  */
 export const getTimesheets = async (
-  filters: TimesheetFilters,
-): Promise<TimesheetWithDetails[]> => {
-  let query = `
-    SELECT 
-      t.timesheet_id,
-      t.staff_id,
-      sd.staff_name,
-      t.task_description,
-      t.task_type,
-      t.task_station,
-      t.department_id,
-      d.department_name,
-      t.date,
-      t.check_in_time,
-      t.check_out_time,
-      t.hours_spent,
-      t.client_id,
-      c.client_name,
-      t.project_id,
-      p.project_name
-    FROM timesheets t
-    INNER JOIN staff_details sd ON t.staff_id = sd.staff_id
-    INNER JOIN departments d ON t.department_id = d.department_id
-    LEFT JOIN clients c ON t.client_id = c.client_id
-    LEFT JOIN projects p ON t.project_id = p.project_id
-    WHERE 1=1
+  options: TimesheetQueryOptions = {},
+): Promise<PaginatedTimesheetResult> => {
+  const { page, limit, offset } = normalisePagination(options);
+  const sortColumn = resolveSortColumn(options.sortBy);
+  const sortOrder = options.sortOrder === "ASC" ? "ASC" : "DESC";
+
+  const { whereClause, values, paramCount } = buildWhereClause(options);
+
+  const countQuery = `SELECT COUNT(*) AS total ${TIMESHEET_FROM} ${whereClause}`;
+  const dataQuery = `
+    ${TIMESHEET_SELECT}
+    ${whereClause}
+    ORDER BY ${sortColumn} ${sortOrder}
+    LIMIT $${paramCount} OFFSET $${paramCount + 1}
   `;
 
-  const values: any[] = [];
-  let paramCount = 1;
+  const [countResult, dataResult] = await Promise.all([
+    pool.query(countQuery, values),
+    pool.query(dataQuery, [...values, limit, offset]),
+  ]);
 
-  if (filters.startDate) {
-    query += ` AND t.date >= $${paramCount}`;
-    values.push(filters.startDate);
-    paramCount++;
-  }
+  const total = parseInt(countResult.rows[0].total, 10);
+  const totalPages = Math.ceil(total / limit);
 
-  if (filters.endDate) {
-    query += ` AND t.date <= $${paramCount}`;
-    values.push(filters.endDate);
-    paramCount++;
-  }
-
-  if (filters.staffId) {
-    query += ` AND t.staff_id = $${paramCount}`;
-    values.push(filters.staffId);
-    paramCount++;
-  }
-
-  if (filters.departmentId) {
-    query += ` AND t.department_id = $${paramCount}`;
-    values.push(filters.departmentId);
-    paramCount++;
-  }
-
-  query += " ORDER BY t.date DESC, t.check_in_time DESC";
-
-  const result = await pool.query(query, values);
-  return result.rows;
+  return {
+    data: dataResult.rows,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    },
+  };
 };
 
 /**
- * Get timesheet by ID
+ * Returns paginated timesheets scoped to a single staff member.
+ * Accepts the same query options as getTimesheets.
+ * @route GET /api/timesheets/staff/:staffId
+ */
+export const getTimesheetsByStaffId = async (
+  staffId: number,
+  options: Omit<TimesheetQueryOptions, "staffId"> = {},
+): Promise<PaginatedTimesheetResult> => {
+  return getTimesheets({ ...options, staffId });
+};
+
+/**
+ * Returns a single timesheet by its primary key, or null if not found.
+ * @route GET /api/timesheets/:id
  */
 export const getTimesheetById = async (
   timesheetId: number,
 ): Promise<TimesheetWithDetails | null> => {
-  const query = `
-    SELECT 
-      t.timesheet_id,
-      t.staff_id,
-      sd.staff_name,
-      t.task_description,
-      t.task_type,
-      t.task_station,
-      t.department_id,
-      d.department_name,
-      t.date,
-      t.check_in_time,
-      t.check_out_time,
-      t.hours_spent,
-      t.client_id,
-      c.client_name,
-      t.project_id,
-      p.project_name
-    FROM timesheets t
-    INNER JOIN staff_details sd ON t.staff_id = sd.staff_id
-    INNER JOIN departments d ON t.department_id = d.department_id
-    LEFT JOIN clients c ON t.client_id = c.client_id
-    LEFT JOIN projects p ON t.project_id = p.project_id
-    WHERE t.timesheet_id = $1
-  `;
-
-  const result = await pool.query(query, [timesheetId]);
-  return result.rows.length > 0 ? result.rows[0] : null;
+  const result = await pool.query(QUERIES.getById, [timesheetId]);
+  return result.rows[0] ?? null;
 };
 
+// ─── Write ────────────────────────────────────────────────────────────────────
+
 /**
- * Create new timesheet entry
+ * Inserts a new timesheet record after validating station and check times.
+ * @route POST /api/timesheets
  */
 export const createTimesheet = async (
-  timesheetData: TimesheetEntry,
+  data: TimesheetEntry,
 ): Promise<TimesheetEntry> => {
-  const {
-    staff_id,
-    task_description,
-    task_type,
-    task_station,
-    department_id,
-    date,
-    check_in_time,
-    check_out_time,
-    client_id,
-    project_id,
-  } = timesheetData;
-
-  // Validate task station
-  const validStations = ["Office", "Field", "Remote"];
-  if (!validStations.includes(task_station)) {
-    throw new ApiError(
-      400,
-      `Invalid task station. Must be one of: ${validStations.join(", ")}`,
-    );
-  }
-
-  // Validate that check_out_time is after check_in_time
-  if (check_out_time <= check_in_time) {
-    throw new ApiError(400, "Check-out time must be after check-in time");
-  }
-
-  const query = `
-    INSERT INTO timesheets (
-      staff_id, task_description, task_type, task_station,
-      department_id, date, check_in_time, check_out_time,
-      client_id, project_id
-    )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-    RETURNING *
-  `;
+  validateTimesheetEntry(data);
 
   const values = [
-    staff_id,
-    task_description,
-    task_type,
-    task_station,
-    department_id,
-    date,
-    check_in_time,
-    check_out_time,
-    client_id || null,
-    project_id || null,
+    data.staff_id,
+    data.task_description,
+    data.task_type,
+    data.task_station,
+    data.department_id,
+    data.date,
+    data.check_in_time,
+    data.check_out_time,
+    data.client_id ?? null,
+    data.project_id ?? null,
   ];
 
-  const result = await pool.query(query, values);
+  const result = await pool.query(QUERIES.insert, values);
   return result.rows[0];
 };
 
 /**
- * Update timesheet entry
+ * Applies a partial update to an existing timesheet.
+ * Returns null if the record does not exist.
+ * @route PUT /api/timesheets/:id
  */
 export const updateTimesheet = async (
   timesheetId: number,
-  timesheetData: Partial<TimesheetEntry>,
+  data: Partial<TimesheetEntry>,
 ): Promise<TimesheetEntry | null> => {
-  // Check if timesheet exists
-  const existingTimesheet = await getTimesheetById(timesheetId);
-  if (!existingTimesheet) {
-    return null;
-  }
+  const existing = await getTimesheetById(timesheetId);
+  if (!existing) return null;
 
-  // Build dynamic update query
-  const updateFields: string[] = [];
-  const values: any[] = [];
-  let paramCount = 1;
-
-  Object.entries(timesheetData).forEach(([key, value]) => {
-    if (
-      value !== undefined &&
-      key !== "timesheet_id" &&
-      key !== "hours_spent"
-    ) {
-      updateFields.push(`${key} = $${paramCount}`);
-      values.push(value);
-      paramCount++;
-    }
-  });
-
-  if (updateFields.length === 0) {
-    throw new ApiError(400, "No fields to update");
-  }
-
+  const { setClause, values, nextParam } = buildUpdateClause(data);
   values.push(timesheetId);
 
   const query = `
-    UPDATE timesheets 
-    SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
-    WHERE timesheet_id = $${paramCount}
+    UPDATE timesheets
+    SET ${setClause}, updated_at = CURRENT_TIMESTAMP
+    WHERE timesheet_id = $${nextParam}
     RETURNING *
   `;
 
@@ -244,82 +156,54 @@ export const updateTimesheet = async (
 };
 
 /**
- * Delete timesheet entry
+ * Deletes a timesheet by ID.
+ * Returns true if a row was deleted, false if not found.
+ * @route DELETE /api/timesheets/:id
  */
 export const deleteTimesheet = async (
   timesheetId: number,
 ): Promise<boolean> => {
-  const result = await pool.query(
-    "DELETE FROM timesheets WHERE timesheet_id = $1 RETURNING timesheet_id",
-    [timesheetId],
-  );
-
-  return result.rowCount !== null && result.rowCount > 0;
+  const result = await pool.query(QUERIES.deleteById, [timesheetId]);
+  return (result.rowCount ?? 0) > 0;
 };
 
+// ─── Summaries ────────────────────────────────────────────────────────────────
+
 /**
- * Get staff hours summary for a date range
+ * Aggregates total hours logged by a staff member over an optional date range.
+ * @route GET /api/timesheets/staff/:staffId/hours
  */
 export const getStaffHoursSummary = async (
   staffId: number,
   startDate?: string,
   endDate?: string,
-): Promise<any> => {
-  let query = `
-    SELECT 
-      sd.staff_name,
-      SUM(t.hours_spent) AS total_hours,
-      COUNT(t.timesheet_id) AS number_of_entries,
-      MIN(t.date) AS first_entry_date,
-      MAX(t.date) AS last_entry_date
-    FROM timesheets t
-    INNER JOIN staff_details sd ON t.staff_id = sd.staff_id
-    WHERE t.staff_id = $1
-  `;
-
+): Promise<StaffHoursSummary | null> => {
+  let query = QUERIES.staffHoursSummary;
   const values: any[] = [staffId];
   let paramCount = 2;
 
   if (startDate) {
-    query += ` AND t.date >= $${paramCount}`;
+    query += ` AND t.date >= $${paramCount++}`;
     values.push(startDate);
-    paramCount++;
   }
-
   if (endDate) {
-    query += ` AND t.date <= $${paramCount}`;
+    query += ` AND t.date <= $${paramCount++}`;
     values.push(endDate);
-    paramCount++;
   }
 
   query += " GROUP BY sd.staff_name";
 
   const result = await pool.query(query, values);
-  return result.rows.length > 0 ? result.rows[0] : null;
+  return result.rows[0] ?? null;
 };
 
 /**
- * Get project hours summary
+ * Aggregates total hours, staff count, and entry count for a project.
+ * @route GET /api/timesheets/projects/:projectId/hours
  */
 export const getProjectHoursSummary = async (
   projectId: number,
-): Promise<any> => {
-  const query = `
-    SELECT 
-      p.project_name,
-      c.client_name,
-      SUM(t.hours_spent) AS total_hours,
-      COUNT(DISTINCT t.staff_id) AS staff_count,
-      COUNT(t.timesheet_id) AS number_of_entries,
-      MIN(t.date) AS first_entry_date,
-      MAX(t.date) AS last_entry_date
-    FROM timesheets t
-    INNER JOIN projects p ON t.project_id = p.project_id
-    INNER JOIN clients c ON p.client_id = c.client_id
-    WHERE t.project_id = $1
-    GROUP BY p.project_name, c.client_name
-  `;
-
-  const result = await pool.query(query, [projectId]);
-  return result.rows.length > 0 ? result.rows[0] : null;
+): Promise<ProjectHoursSummary | null> => {
+  const result = await pool.query(QUERIES.projectHoursSummary, [projectId]);
+  return result.rows[0] ?? null;
 };

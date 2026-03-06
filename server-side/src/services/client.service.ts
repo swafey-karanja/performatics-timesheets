@@ -39,12 +39,9 @@ export const getAllClients = async (): Promise<ClientWithDetails[]> => {
       c.created_at,
       c.updated_at,
       sd.staff_name AS account_manager_name,
-      sa.work_email AS account_manager_email,
-      COUNT(DISTINCT p.project_id) AS project_count,
-      COALESCE(SUM(t.hours_spent), 0) AS total_hours
+      COUNT(DISTINCT p.project_id) AS project_count
     FROM clients c
-    INNER JOIN staff_accounts sa ON c.account_manager_id = sa.account_id
-    INNER JOIN staff_details sd ON sa.staff_id = sd.staff_id
+    INNER JOIN staff_details sd ON c.account_manager_id = sd.staff_id
     LEFT JOIN projects p ON c.client_id = p.client_id
     LEFT JOIN timesheets t ON c.client_id = t.client_id
     GROUP BY 
@@ -56,8 +53,7 @@ export const getAllClients = async (): Promise<ClientWithDetails[]> => {
       c.entry_date,
       c.created_at,
       c.updated_at,
-      sd.staff_name,
-      sa.work_email
+      sd.staff_name
     ORDER BY c.client_name
   `;
 
@@ -82,12 +78,9 @@ export const getClientById = async (
       c.created_at,
       c.updated_at,
       sd.staff_name AS account_manager_name,
-      sa.work_email AS account_manager_email,
-      COUNT(DISTINCT p.project_id) AS project_count,
-      COALESCE(SUM(t.hours_spent), 0) AS total_hours
+      COUNT(DISTINCT p.project_id) AS project_count
     FROM clients c
-    INNER JOIN staff_accounts sa ON c.account_manager_id = sa.account_id
-    INNER JOIN staff_details sd ON sa.staff_id = sd.staff_id
+    INNER JOIN staff_details sd ON c.account_manager_id = sd.staff_id
     LEFT JOIN projects p ON c.client_id = p.client_id
     LEFT JOIN timesheets t ON c.client_id = t.client_id
     WHERE c.client_id = $1
@@ -100,8 +93,7 @@ export const getClientById = async (
       c.entry_date,
       c.created_at,
       c.updated_at,
-      sd.staff_name,
-      sa.work_email
+      sd.staff_name
   `;
 
   const result = await pool.query(query, [clientId]);
@@ -135,7 +127,7 @@ export const createClient = async (clientData: Client): Promise<Client> => {
 
   // Verify account manager exists
   const managerCheck = await pool.query(
-    "SELECT account_id FROM staff_accounts WHERE account_id = $1",
+    "SELECT staff_id FROM staff_details WHERE staff_id = $1",
     [account_manager_id],
   );
 
@@ -201,7 +193,7 @@ export const updateClient = async (
   // Verify account manager if provided
   if (clientData.account_manager_id) {
     const managerCheck = await pool.query(
-      "SELECT account_id FROM staff_accounts WHERE account_id = $1",
+      "SELECT staff_id FROM staff_details WHERE staff_id = $1",
       [clientData.account_manager_id],
     );
 
@@ -293,11 +285,9 @@ export const getClientsBySector = async (
       c.account_manager_id,
       c.entry_date,
       sd.staff_name AS account_manager_name,
-      sa.work_email AS account_manager_email,
       COUNT(DISTINCT p.project_id) AS project_count
     FROM clients c
-    INNER JOIN staff_accounts sa ON c.account_manager_id = sa.account_id
-    INNER JOIN staff_details sd ON sa.staff_id = sd.staff_id
+    INNER JOIN staff_details sd ON c.account_manager_id = sd.staff_id
     LEFT JOIN projects p ON c.client_id = p.client_id
     WHERE c.sector = $1
     GROUP BY 
@@ -307,8 +297,7 @@ export const getClientsBySector = async (
       c.category,
       c.account_manager_id,
       c.entry_date,
-      sd.staff_name,
-      sa.work_email
+      sd.staff_name
     ORDER BY c.client_name
   `;
 
@@ -331,11 +320,9 @@ export const getClientsByCategory = async (
       c.account_manager_id,
       c.entry_date,
       sd.staff_name AS account_manager_name,
-      sa.work_email AS account_manager_email,
       COUNT(DISTINCT p.project_id) AS project_count
     FROM clients c
-    INNER JOIN staff_accounts sa ON c.account_manager_id = sa.account_id
-    INNER JOIN staff_details sd ON sa.staff_id = sd.staff_id
+    INNER JOIN staff_details sd ON c.account_manager_id = sd.staff_id
     LEFT JOIN projects p ON c.client_id = p.client_id
     WHERE c.category = $1
     GROUP BY 
@@ -345,8 +332,7 @@ export const getClientsByCategory = async (
       c.category,
       c.account_manager_id,
       c.entry_date,
-      sd.staff_name,
-      sa.work_email
+      sd.staff_name
     ORDER BY c.client_name
   `;
 
@@ -365,7 +351,6 @@ export const getClientProjects = async (clientId: number): Promise<any[]> => {
       p.start_date,
       p.end_date,
       p.cluster,
-      COALESCE(SUM(t.hours_spent), 0) AS total_hours,
       COUNT(DISTINCT t.staff_id) AS staff_count
     FROM projects p
     LEFT JOIN timesheets t ON p.project_id = t.project_id

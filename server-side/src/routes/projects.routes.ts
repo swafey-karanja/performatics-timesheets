@@ -84,18 +84,24 @@ const updateProjectValidation = [
 const idValidation = [param("id").isInt({ min: 1 }).withMessage("Invalid ID")];
 
 // Routes
-router.get("/active", asyncHandler(projectController.getActiveProjects));
+router.get(
+  "/active",
+  authenticate,
+  asyncHandler(projectController.getActiveProjects),
+);
 
 router.get(
-  "/account-manager/:accountManagerId",
+  "/account-manager/:id",
+  authenticate,
   validate(idValidation),
   asyncHandler(projectController.getProjectsByAccountManager),
 );
 
-router.get("/", asyncHandler(projectController.getAllProjects));
+router.get("/", authenticate, asyncHandler(projectController.getAllProjects));
 
 router.get(
   "/:id",
+  authenticate,
   validate(idValidation),
   asyncHandler(projectController.getProjectById),
 );
@@ -126,17 +132,20 @@ router.delete(
 
 router.get(
   "/cluster/:cluster",
+  authenticate,
   asyncHandler(projectController.getProjectsByCluster),
 );
 
 router.get(
   "/:id/timesheets",
+  authenticate,
   validate(idValidation),
   asyncHandler(projectController.getProjectTimesheets),
 );
 
 router.get(
   "/:id/staff",
+  authenticate,
   validate(idValidation),
   asyncHandler(projectController.getProjectStaffBreakdown),
 );

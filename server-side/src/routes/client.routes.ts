@@ -78,10 +78,11 @@ const updateClientValidation = [
 const idValidation = [param("id").isInt({ min: 1 }).withMessage("Invalid ID")];
 
 // Routes
-router.get("/", asyncHandler(clientController.getAllClients));
+router.get("/", authenticate, asyncHandler(clientController.getAllClients));
 
 router.get(
   "/:id",
+  authenticate,
   validate(idValidation),
   asyncHandler(clientController.getClientById),
 );
@@ -112,16 +113,19 @@ router.delete(
 
 router.get(
   "/sector/:sector",
+  authenticate,
   asyncHandler(clientController.getClientsBySector),
 );
 
 router.get(
   "/category/:category",
+  authenticate,
   asyncHandler(clientController.getClientsByCategory),
 );
 
 router.get(
   "/:id/projects",
+  authenticate,
   validate(idValidation),
   asyncHandler(clientController.getClientProjects),
 );

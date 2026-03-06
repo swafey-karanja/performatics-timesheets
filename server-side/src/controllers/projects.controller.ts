@@ -153,7 +153,7 @@ export const getProjectsByAccountManager = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const accountManagerId = String(req.params.accountManagerId);
+  const accountManagerId = String(req.params.id);
   const projects = await projectService.getProjectsByAccountManager(
     parseInt(accountManagerId),
   );

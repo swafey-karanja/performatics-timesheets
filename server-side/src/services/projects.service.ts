@@ -43,11 +43,10 @@ export const getAllProjects = async (): Promise<ProjectWithDetails[]> => {
       p.start_date,
       p.end_date,
       p.cluster,
-      p.account_manager,
+      p.account_manager_id,
+      sd.staff_name AS account_manager_name,
       p.created_at,
       p.updated_at,
-      am_sd.staff_name AS account_manager_name,
-      am_sa.work_email AS account_manager_email,
       COALESCE(SUM(t.hours_spent), 0) AS total_hours,
       COUNT(DISTINCT t.staff_id) AS staff_count,
       COUNT(t.timesheet_id) AS timesheet_count,
@@ -57,8 +56,7 @@ export const getAllProjects = async (): Promise<ProjectWithDetails[]> => {
       END AS is_active
     FROM projects p
     INNER JOIN clients c ON p.client_id = c.client_id
-    LEFT JOIN staff_accounts am_sa ON p.account_manager = am_sa.account_id
-    LEFT JOIN staff_details am_sd ON am_sa.staff_id = am_sd.staff_id
+    LEFT JOIN staff_details sd ON p.account_manager_id = sd.staff_id
     LEFT JOIN timesheets t ON p.project_id = t.project_id
     GROUP BY 
       p.project_id,
@@ -69,11 +67,10 @@ export const getAllProjects = async (): Promise<ProjectWithDetails[]> => {
       p.start_date,
       p.end_date,
       p.cluster,
-      p.account_manager,
+      p.account_manager_id,
+      sd.staff_name,
       p.created_at,
-      p.updated_at,
-      am_sd.staff_name,
-      am_sa.work_email
+      p.updated_at
     ORDER BY p.start_date DESC
   `;
 
@@ -97,11 +94,10 @@ export const getProjectById = async (
       p.start_date,
       p.end_date,
       p.cluster,
-      p.account_manager,
+      p.account_manager_id,
       p.created_at,
       p.updated_at,
-      am_sd.staff_name AS account_manager_name,
-      am_sa.work_email AS account_manager_email,
+      sd.staff_name AS account_manager_name,
       COALESCE(SUM(t.hours_spent), 0) AS total_hours,
       COUNT(DISTINCT t.staff_id) AS staff_count,
       COUNT(t.timesheet_id) AS timesheet_count,
@@ -111,8 +107,7 @@ export const getProjectById = async (
       END AS is_active
     FROM projects p
     INNER JOIN clients c ON p.client_id = c.client_id
-    LEFT JOIN staff_accounts am_sa ON p.account_manager = am_sa.account_id
-    LEFT JOIN staff_details am_sd ON am_sa.staff_id = am_sd.staff_id
+    LEFT JOIN staff_details sd ON p.account_manager_id = sd.staff_id
     LEFT JOIN timesheets t ON p.project_id = t.project_id
     WHERE p.project_id = $1
     GROUP BY 
@@ -124,11 +119,10 @@ export const getProjectById = async (
       p.start_date,
       p.end_date,
       p.cluster,
-      p.account_manager,
+      p.account_manager_id,
       p.created_at,
       p.updated_at,
-      am_sd.staff_name,
-      am_sa.work_email
+      sd.staff_name
   `;
 
   const result = await pool.query(query, [projectId]);
@@ -332,9 +326,8 @@ export const getProjectsByCluster = async (
       p.start_date,
       p.end_date,
       p.cluster,
-      p.account_manager,
-      am_sd.staff_name AS account_manager_name,
-      am_sa.work_email AS account_manager_email,
+      p.account_manager_id,
+      sd.staff_name AS account_manager_name,
       COALESCE(SUM(t.hours_spent), 0) AS total_hours,
       COUNT(DISTINCT t.staff_id) AS staff_count,
       CASE 
@@ -343,8 +336,7 @@ export const getProjectsByCluster = async (
       END AS is_active
     FROM projects p
     INNER JOIN clients c ON p.client_id = c.client_id
-    LEFT JOIN staff_accounts am_sa ON p.account_manager = am_sa.account_id
-    LEFT JOIN staff_details am_sd ON am_sa.staff_id = am_sd.staff_id
+    LEFT JOIN staff_details sd ON p.account_manager_id = sd.staff_id
     LEFT JOIN timesheets t ON p.project_id = t.project_id
     WHERE p.cluster = $1
     GROUP BY 
@@ -355,9 +347,8 @@ export const getProjectsByCluster = async (
       p.start_date,
       p.end_date,
       p.cluster,
-      p.account_manager,
-      am_sd.staff_name,
-      am_sa.work_email
+      p.account_manager_id,
+      sd.staff_name
     ORDER BY p.start_date DESC
   `;
 
@@ -378,16 +369,14 @@ export const getActiveProjects = async (): Promise<ProjectWithDetails[]> => {
       p.start_date,
       p.end_date,
       p.cluster,
-      p.account_manager,
-      am_sd.staff_name AS account_manager_name,
-      am_sa.work_email AS account_manager_email,
+      p.account_manager_id,
+      sd.staff_name AS account_manager_name,
       COALESCE(SUM(t.hours_spent), 0) AS total_hours,
       COUNT(DISTINCT t.staff_id) AS staff_count,
       true AS is_active
     FROM projects p
     INNER JOIN clients c ON p.client_id = c.client_id
-    LEFT JOIN staff_accounts am_sa ON p.account_manager = am_sa.account_id
-    LEFT JOIN staff_details am_sd ON am_sa.staff_id = am_sd.staff_id
+    LEFT JOIN staff_details sd ON p.account_manager_id = sd.staff_id
     LEFT JOIN timesheets t ON p.project_id = t.project_id
     WHERE p.end_date IS NULL OR p.end_date >= CURRENT_DATE
     GROUP BY 
@@ -398,9 +387,8 @@ export const getActiveProjects = async (): Promise<ProjectWithDetails[]> => {
       p.start_date,
       p.end_date,
       p.cluster,
-      p.account_manager,
-      am_sd.staff_name,
-      am_sa.work_email
+      p.account_manager_id,
+      sd.staff_name
     ORDER BY p.start_date DESC
   `;
 
@@ -424,9 +412,8 @@ export const getProjectsByAccountManager = async (
       p.start_date,
       p.end_date,
       p.cluster,
-      p.account_manager,
-      am_sd.staff_name AS account_manager_name,
-      am_sa.work_email AS account_manager_email,
+      p.account_manager_id,
+      sd.staff_name AS account_manager_name,
       COALESCE(SUM(t.hours_spent), 0) AS total_hours,
       COUNT(DISTINCT t.staff_id) AS staff_count,
       COUNT(t.timesheet_id) AS timesheet_count,
@@ -436,10 +423,9 @@ export const getProjectsByAccountManager = async (
       END AS is_active
     FROM projects p
     INNER JOIN clients c ON p.client_id = c.client_id
-    LEFT JOIN staff_accounts am_sa ON p.account_manager = am_sa.account_id
-    LEFT JOIN staff_details am_sd ON am_sa.staff_id = am_sd.staff_id
+    LEFT JOIN staff_details sd ON p.account_manager_id = sd.staff_id
     LEFT JOIN timesheets t ON p.project_id = t.project_id
-    WHERE p.account_manager = $1
+    WHERE p.account_manager_id = $1
     GROUP BY 
       p.project_id,
       p.project_name,
@@ -449,9 +435,8 @@ export const getProjectsByAccountManager = async (
       p.start_date,
       p.end_date,
       p.cluster,
-      p.account_manager,
-      am_sd.staff_name,
-      am_sa.work_email
+      p.account_manager_id,
+      sd.staff_name
     ORDER BY p.start_date DESC
   `;
 

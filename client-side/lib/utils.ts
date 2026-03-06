@@ -30,3 +30,12 @@ export const getCookie = (name: string): string | null => {
     .find((row) => row.startsWith(`${name}=`));
   return match ? match.split("=")[1] : null;
 };
+
+export function getAuthHeaders(): HeadersInit {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}

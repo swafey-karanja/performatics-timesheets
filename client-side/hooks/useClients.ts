@@ -1,29 +1,43 @@
 // hooks/useClientTasks.ts
 import useSWR from "swr";
-import { Client, Project } from "../types/types";
-import { getAllClients, getClientProjects } from "@/services/clientService";
+import { Client, ClientOption, Project } from "../types/types";
+import { fetchClients, getClientProjects } from "@/services/clientService";
+import { useEffect, useState } from "react";
 
-/**
- * Hook to fetch all clients
- */
-export function useFetchClients() {
-  const { data, error, isLoading, mutate } = useSWR<Client[]>(
-    "all-clients", // Use a simple key instead of URL
-    getAllClients,
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: true,
-    },
-  );
 
-  //   console.log(data);
 
-  return {
-    clients: data || [],
-    isLoading,
-    error,
-    mutate,
-  };
+interface UseClientsResult {
+  clients: ClientOption[];
+  loading: boolean;
+  error: string | null;
+}
+
+export function useFetchClients(): UseClientsResult {
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchClients()
+      .then((data) => {
+        if (!cancelled) setClients(data);
+      })
+      .catch((err) => {
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : "Failed to load clients");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []); // runs once — client list doesn't change during a session
+
+  return { clients, loading, error };
 }
 
 /**

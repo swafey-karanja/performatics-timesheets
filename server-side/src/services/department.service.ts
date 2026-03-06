@@ -32,20 +32,17 @@ export const getAllDepartments = async (): Promise<DepartmentWithHead[]> => {
       d.created_at,
       d.updated_at,
       sd.staff_name AS department_head_name,
-      sa.work_email AS department_head_email,
-      COUNT(DISTINCT sa_members.account_id) AS staff_count
+      COUNT(DISTINCT sd_members.staff_id) AS staff_count
     FROM departments d
-    INNER JOIN staff_accounts sa ON d.department_head_id = sa.account_id
-    INNER JOIN staff_details sd ON sa.staff_id = sd.staff_id
-    LEFT JOIN staff_accounts sa_members ON d.department_id = sa_members.department_id
+    INNER JOIN staff_details sd ON d.department_head_id = sd.staff_id
+    LEFT JOIN staff_details sd_members ON d.department_id = sd_members.department_id
     GROUP BY 
       d.department_id, 
       d.department_name, 
       d.department_head_id,
       d.created_at,
       d.updated_at,
-      sd.staff_name,
-      sa.work_email
+      sd.staff_name
     ORDER BY d.department_name
   `;
 
@@ -67,12 +64,10 @@ export const getDepartmentById = async (
       d.created_at,
       d.updated_at,
       sd.staff_name AS department_head_name,
-      sa.work_email AS department_head_email,
-      COUNT(DISTINCT sa_members.account_id) AS staff_count
+      COUNT(DISTINCT sd_members.staff_id) AS staff_count
     FROM departments d
-    INNER JOIN staff_accounts sa ON d.department_head_id = sa.account_id
-    INNER JOIN staff_details sd ON sa.staff_id = sd.staff_id
-    LEFT JOIN staff_accounts sa_members ON d.department_id = sa_members.department_id
+    INNER JOIN staff_details sd ON d.department_head_id = sd.staff_id
+    LEFT JOIN staff_details sd_members ON d.department_id = sd_members.department_id
     WHERE d.department_id = $1
     GROUP BY 
       d.department_id, 
@@ -80,8 +75,7 @@ export const getDepartmentById = async (
       d.department_head_id,
       d.created_at,
       d.updated_at,
-      sd.staff_name,
-      sa.work_email
+      sd.staff_name
   `;
 
   const result = await pool.query(query, [departmentId]);
@@ -247,8 +241,8 @@ export const getDepartmentStaff = async (
       sd.staff_name,
       sd.staff_role,
       sd.work_type,
-      sa.account_id,
-      sa.username,
+      sd.staff_id,
+      sd.staff_name,
       sa.work_email,
       sa.status
     FROM staff_accounts sa

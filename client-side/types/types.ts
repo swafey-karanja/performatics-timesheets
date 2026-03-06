@@ -98,9 +98,16 @@ export interface Client {
   sector: ClientSector;
   category: ClientCategory;
   account_manager_id: number;
+  account_manager_name: string;
   entry_date: Date;
+  project_count: string;
   created_at?: Date;
   updated_at?: Date;
+}
+
+export interface ClientOption {
+  client_id: number;
+  client_name: string;
 }
 
 // Timesheet-related types

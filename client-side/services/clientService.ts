@@ -1,30 +1,18 @@
+import { getAuthHeaders } from "@/lib/utils";
 import { Client, Project } from "@/types/types";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BACKEND_URL || "http://localhost:3000/api";
 
-/**
- * Fetch all clients from the database
- */
-export async function getAllClients(): Promise<Client[]> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/clients`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+export async function fetchClients(): Promise<Client[]> {
+  const res = await fetch(`${API_BASE_URL}/clients`, {
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) throw new Error(`Failed to fetch clients: ${res.status}`);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch clients: ${response.statusText}`);
-    }
+  const json = await res.json();
 
-    const data = await response.json();
-    return data.clients;
-  } catch (error) {
-    console.error("Error fetching projects:", error);
-    throw error;
-  }
+   return json.clients as Client[];
 }
 
 /**
@@ -40,9 +28,7 @@ export async function getClientProjects({
   try {
     const response = await fetch(`${API_BASE_URL}/clients/${id}/projects`, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: getAuthHeaders()
     });
 
     if (!response.ok) {

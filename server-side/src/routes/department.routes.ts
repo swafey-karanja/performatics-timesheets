@@ -42,10 +42,15 @@ const updateDepartmentValidation = [
 const idValidation = [param("id").isInt({ min: 1 }).withMessage("Invalid ID")];
 
 // Routes
-router.get("/", asyncHandler(departmentController.getAllDepartments));
+router.get(
+  "/",
+  authenticate,
+  asyncHandler(departmentController.getAllDepartments),
+);
 
 router.get(
   "/:id",
+  authenticate,
   validate(idValidation),
   asyncHandler(departmentController.getDepartmentById),
 );
@@ -76,6 +81,7 @@ router.delete(
 
 router.get(
   "/:id/staff",
+  authenticate,
   validate(idValidation),
   asyncHandler(departmentController.getDepartmentStaff),
 );

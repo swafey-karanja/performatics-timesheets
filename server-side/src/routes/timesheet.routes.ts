@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { body, param, query } from "express-validator";
 import * as timesheetController from "../controllers/timesheets.controller";
-import { asyncHandler, authenticate, validate } from "../middleware/index";
+import {
+  asyncHandler,
+  authenticate,
+  authorize,
+  validate,
+} from "../middleware/index";
 
 const router = Router();
 
@@ -115,15 +120,41 @@ const timesheetFilterValidation = [
     .withMessage("Department ID must be a positive integer"),
 ];
 
+const staffTimesheetFilterValidation = [
+  param("staffId")
+    .isInt({ min: 1 })
+    .withMessage("Staff ID must be a positive integer"),
+
+  query("startDate")
+    .optional()
+    .isISO8601()
+    .withMessage("Start date must be a valid date"),
+
+  query("endDate")
+    .optional()
+    .isISO8601()
+    .withMessage("End date must be a valid date"),
+];
+
 // Routes
 router.get(
   "/",
+  authenticate,
+  authorize("Admin", "Manager"),
   validate(timesheetFilterValidation),
   asyncHandler(timesheetController.getAllTimesheets),
 );
 
 router.get(
+  "/staff/:staffId",
+  authenticate,
+  validate(staffTimesheetFilterValidation),
+  asyncHandler(timesheetController.getTimesheetsByStaffId),
+);
+
+router.get(
   "/:id",
+  authenticate,
   validate(idValidation),
   asyncHandler(timesheetController.getTimesheetById),
 );
@@ -145,6 +176,7 @@ router.put(
 router.delete(
   "/:id",
   authenticate,
+  authorize("Admin", "Manager"),
   validate(idValidation),
   asyncHandler(timesheetController.deleteTimesheet),
 );
@@ -158,6 +190,7 @@ router.get(
 
 router.get(
   "/projects/:projectId/hours",
+  authenticate,
   validate(idValidation),
   asyncHandler(timesheetController.getProjectHours),
 );
