@@ -89,5 +89,22 @@ export async function createTimesheet(
   }
 }
 
+/**
+ * Update an existing timesheet entry
+ * Maps to: PUT /api/timesheets/:id
+ */
+export async function updateTimesheet(
+  timesheetId: number,
+  data: Partial<TimesheetCreateData>
+): Promise<Timesheet> {
+  const res = await fetch(`${API_BASE_URL}/timesheets/${timesheetId}`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  const body = await handleResponse<{ status: string; data: Timesheet }>(res);
+  return body.data;
+}
+
 
 

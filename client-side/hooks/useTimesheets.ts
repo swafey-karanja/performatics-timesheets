@@ -55,7 +55,7 @@ export function useTimesheets(
   return { data, pagination, loading, error, refetch };
 }
 
-// ─── useTimesheetsByStaffId ────────────────────────────────────────────────────
+// ─── useFetchTimesheetsByStaffId ────────────────────────────────────────────────────
 
 /**
  * Fetches timesheets for a specific staff member.
@@ -64,7 +64,7 @@ export function useTimesheets(
  * @param staffId - The staff member's ID
  * @param params  - Query options (page, limit, search, filters, …)
  */
-export function useTimesheetsByStaffId(
+export function useFetchTimesheetsByStaffId(
   staffId: number | null | undefined,
   params: Omit<TimesheetQueryParams, "staffId"> = {}
 ): UseTimesheetsResult {
@@ -155,4 +155,34 @@ export function useCreateTimesheet() {
     data,
     reset,
   };
+}
+
+/**
+ * Hook for updating an existing timesheet entry
+ */
+export function useUpdateTimesheet() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const submit = async (
+    timesheetId: number,
+    data: Partial<import("@/types/types").TimesheetCreateData>
+  ) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await import("@/services/timeSheetsService").then((m) =>
+        m.updateTimesheet(timesheetId, data)
+      );
+      return result;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error("Failed to update timesheet");
+      setError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { submit, isLoading, error };
 }

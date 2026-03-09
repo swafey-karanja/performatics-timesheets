@@ -12,7 +12,7 @@ const DashboardPage = () => {
 
     <div className="col-span-12 space-y-6">
       <EmpoyeeBreakdown />
-    </div>;
+    </div>
   </div>
   )
 };
