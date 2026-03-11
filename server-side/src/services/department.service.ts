@@ -1,5 +1,6 @@
 import { pool } from "../config/database";
 import { ApiError } from "../middleware";
+import { DEPARTMENT_QUERIES } from "../queries/department.queries";
 
 /**
  * Department Service
@@ -24,29 +25,7 @@ export interface DepartmentWithHead extends Department {
  * Get all departments with their head details
  */
 export const getAllDepartments = async (): Promise<DepartmentWithHead[]> => {
-  const query = `
-    SELECT 
-      d.department_id,
-      d.department_name,
-      d.department_head_id,
-      d.created_at,
-      d.updated_at,
-      sd.staff_name AS department_head_name,
-      COUNT(DISTINCT sd_members.staff_id) AS staff_count
-    FROM departments d
-    INNER JOIN staff_details sd ON d.department_head_id = sd.staff_id
-    LEFT JOIN staff_details sd_members ON d.department_id = sd_members.department_id
-    GROUP BY 
-      d.department_id, 
-      d.department_name, 
-      d.department_head_id,
-      d.created_at,
-      d.updated_at,
-      sd.staff_name
-    ORDER BY d.department_name
-  `;
-
-  const result = await pool.query(query);
+  const result = await pool.query(DEPARTMENT_QUERIES.getAllDepartments);
   return result.rows;
 };
 
@@ -56,29 +35,9 @@ export const getAllDepartments = async (): Promise<DepartmentWithHead[]> => {
 export const getDepartmentById = async (
   departmentId: number,
 ): Promise<DepartmentWithHead | null> => {
-  const query = `
-    SELECT 
-      d.department_id,
-      d.department_name,
-      d.department_head_id,
-      d.created_at,
-      d.updated_at,
-      sd.staff_name AS department_head_name,
-      COUNT(DISTINCT sd_members.staff_id) AS staff_count
-    FROM departments d
-    INNER JOIN staff_details sd ON d.department_head_id = sd.staff_id
-    LEFT JOIN staff_details sd_members ON d.department_id = sd_members.department_id
-    WHERE d.department_id = $1
-    GROUP BY 
-      d.department_id, 
-      d.department_name, 
-      d.department_head_id,
-      d.created_at,
-      d.updated_at,
-      sd.staff_name
-  `;
-
-  const result = await pool.query(query, [departmentId]);
+  const result = await pool.query(DEPARTMENT_QUERIES.getDepartmentById, [
+    departmentId,
+  ]);
   return result.rows.length > 0 ? result.rows[0] : null;
 };
 
@@ -92,33 +51,27 @@ export const createDepartment = async (
 
   // Check if department name already exists
   const nameCheck = await pool.query(
-    "SELECT department_id FROM departments WHERE department_name = $1",
+    DEPARTMENT_QUERIES.checkDepartmentNameExists,
     [department_name],
   );
-
   if (nameCheck.rows.length > 0) {
     throw new ApiError(400, "Department name already exists");
   }
 
   // Verify department head exists
   const headCheck = await pool.query(
-    "SELECT account_id FROM staff_accounts WHERE account_id = $1",
+    DEPARTMENT_QUERIES.checkDepartmentHeadExists,
     [department_head_id],
   );
-
   if (headCheck.rows.length === 0) {
     throw new ApiError(400, "Department head account ID does not exist");
   }
 
-  const query = `
-    INSERT INTO departments (department_name, department_head_id)
-    VALUES ($1, $2)
-    RETURNING *
-  `;
+  const result = await pool.query(DEPARTMENT_QUERIES.createDepartment, [
+    department_name,
+    department_head_id,
+  ]);
 
-  const values = [department_name, department_head_id];
-
-  const result = await pool.query(query, values);
   return result.rows[0];
 };
 
@@ -135,13 +88,12 @@ export const updateDepartment = async (
     return null;
   }
 
-  // If updating name, check uniqueness
+  // If updating name, check uniqueness against other departments
   if (departmentData.department_name) {
     const nameCheck = await pool.query(
-      "SELECT department_id FROM departments WHERE department_name = $1 AND department_id != $2",
+      DEPARTMENT_QUERIES.checkDepartmentNameExistsExcluding,
       [departmentData.department_name, departmentId],
     );
-
     if (nameCheck.rows.length > 0) {
       throw new ApiError(400, "Department name already exists");
     }
@@ -150,10 +102,9 @@ export const updateDepartment = async (
   // If updating head, verify they exist
   if (departmentData.department_head_id) {
     const headCheck = await pool.query(
-      "SELECT account_id FROM staff_accounts WHERE account_id = $1",
+      DEPARTMENT_QUERIES.checkDepartmentHeadExists,
       [departmentData.department_head_id],
     );
-
     if (headCheck.rows.length === 0) {
       throw new ApiError(400, "Department head account ID does not exist");
     }
@@ -178,14 +129,14 @@ export const updateDepartment = async (
 
   values.push(departmentId);
 
-  const query = `
-    UPDATE departments 
+  const updateQuery = `
+    UPDATE departments
     SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
     WHERE department_id = $${paramCount}
     RETURNING *
   `;
 
-  const result = await pool.query(query, values);
+  const result = await pool.query(updateQuery, values);
   return result.rows[0];
 };
 
@@ -197,10 +148,9 @@ export const deleteDepartment = async (
 ): Promise<boolean> => {
   // Check if department has staff members
   const staffCheck = await pool.query(
-    "SELECT COUNT(*) FROM staff_accounts WHERE department_id = $1",
+    DEPARTMENT_QUERIES.checkDepartmentHasStaff,
     [departmentId],
   );
-
   if (parseInt(staffCheck.rows[0].count) > 0) {
     throw new ApiError(
       400,
@@ -210,10 +160,9 @@ export const deleteDepartment = async (
 
   // Check if department has timesheets
   const timesheetCheck = await pool.query(
-    "SELECT COUNT(*) FROM timesheets WHERE department_id = $1",
+    DEPARTMENT_QUERIES.checkDepartmentHasTimesheets,
     [departmentId],
   );
-
   if (parseInt(timesheetCheck.rows[0].count) > 0) {
     throw new ApiError(
       400,
@@ -221,11 +170,9 @@ export const deleteDepartment = async (
     );
   }
 
-  const result = await pool.query(
-    "DELETE FROM departments WHERE department_id = $1 RETURNING department_id",
-    [departmentId],
-  );
-
+  const result = await pool.query(DEPARTMENT_QUERIES.deleteDepartment, [
+    departmentId,
+  ]);
   return result.rowCount !== null && result.rowCount > 0;
 };
 
@@ -235,22 +182,8 @@ export const deleteDepartment = async (
 export const getDepartmentStaff = async (
   departmentId: number,
 ): Promise<any[]> => {
-  const query = `
-    SELECT 
-      sd.staff_id,
-      sd.staff_name,
-      sd.staff_role,
-      sd.work_type,
-      sd.staff_id,
-      sd.staff_name,
-      sa.work_email,
-      sa.status
-    FROM staff_accounts sa
-    INNER JOIN staff_details sd ON sa.staff_id = sd.staff_id
-    WHERE sa.department_id = $1
-    ORDER BY sd.staff_name
-  `;
-
-  const result = await pool.query(query, [departmentId]);
+  const result = await pool.query(DEPARTMENT_QUERIES.getDepartmentStaff, [
+    departmentId,
+  ]);
   return result.rows;
 };

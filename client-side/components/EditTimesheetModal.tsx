@@ -27,7 +27,7 @@ import { useClientProjects, useFetchClients } from "@/hooks/useClients";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useUpdateTimesheet } from "@/hooks/useTimesheets";
 import { TimesheetRow } from "@/types/timesheets.types";
-import AppModal from "@/components/ui/Modal";
+import AppModal from "@/components/common/Modal";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 

@@ -8,6 +8,7 @@ import {
   StaffAccount,
   JwtPayload,
 } from "../types/types";
+import { AUTH_QUERIES } from "../queries/auth.queries";
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
 
@@ -27,19 +28,16 @@ export const createAccount = async (
   } = input;
 
   // Verify the staff_id exists
-  const staffCheck = await query(
-    "SELECT staff_id FROM staff_details WHERE staff_id = $1",
-    [staff_id],
-  );
+  const staffCheck = await query(AUTH_QUERIES.checkStaffExists, [staff_id]);
   if (staffCheck.rows.length === 0) {
     throw new Error("Staff member not found");
   }
 
   // Check for duplicate username or email
-  const duplicateCheck = await query(
-    "SELECT account_id FROM staff_accounts WHERE username = $1 OR work_email = $2",
-    [username, work_email],
-  );
+  const duplicateCheck = await query(AUTH_QUERIES.checkDuplicateAccount, [
+    username,
+    work_email,
+  ]);
   if (duplicateCheck.rows.length > 0) {
     throw new Error("Username or work email already exists");
   }
@@ -47,21 +45,14 @@ export const createAccount = async (
   // Hash password
   const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-  const result = await query(
-    `INSERT INTO staff_accounts 
-      (staff_id, username, work_email, password_hash, department_id, role)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING account_id, staff_id, username, work_email, status,
-        department_id, role, date_registered, created_at, updated_at`,
-    [
-      staff_id,
-      username,
-      work_email,
-      password_hash,
-      department_id ?? null,
-      role,
-    ],
-  );
+  const result = await query(AUTH_QUERIES.createAccount, [
+    staff_id,
+    username,
+    work_email,
+    password_hash,
+    department_id ?? null,
+    role,
+  ]);
 
   return result.rows[0];
 };
@@ -77,11 +68,10 @@ export const login = async (input: LoginInput): Promise<AuthResponse> => {
   }
 
   // Fetch account
-  const result = await query(
-    `SELECT * FROM staff_accounts 
-     WHERE username = $1 OR work_email = $2`,
-    [username ?? null, work_email ?? null],
-  );
+  const result = await query(AUTH_QUERIES.getAccountByUsernameOrEmail, [
+    username ?? null,
+    work_email ?? null,
+  ]);
 
   if (result.rows.length === 0) {
     throw new Error("Invalid credentials");
@@ -127,11 +117,9 @@ export const refreshAccessToken = async (
 ): Promise<Pick<AuthResponse, "tokens">> => {
   const decoded = verifyRefreshToken(refreshToken);
 
-  const result = await query(
-    `SELECT account_id, staff_id, username, work_email, department_id, status
-     FROM staff_accounts WHERE account_id = $1`,
-    [decoded.account_id],
-  );
+  const result = await query(AUTH_QUERIES.getAccountForRefresh, [
+    decoded.account_id,
+  ]);
 
   if (result.rows.length === 0) {
     throw new Error("Account not found");
@@ -153,12 +141,6 @@ export const refreshAccessToken = async (
 export const getAccountById = async (
   account_id: number,
 ): Promise<Omit<StaffAccount, "password_hash"> | null> => {
-  const result = await query(
-    `SELECT account_id, staff_id, username, work_email, status,
-            department_id, date_registered, created_at, updated_at
-     FROM staff_accounts WHERE account_id = $1`,
-    [account_id],
-  );
-
+  const result = await query(AUTH_QUERIES.getAccountById, [account_id]);
   return result.rows[0] ?? null;
 };

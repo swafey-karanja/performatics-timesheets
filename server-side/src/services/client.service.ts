@@ -1,5 +1,6 @@
 import { pool } from "../config/database";
 import { ApiError } from "../middleware";
+import { CLIENT_QUERIES } from "../queries/client.queries";
 
 /**
  * Client Service
@@ -28,36 +29,7 @@ export interface ClientWithDetails extends Client {
  * Get all clients with account manager details
  */
 export const getAllClients = async (): Promise<ClientWithDetails[]> => {
-  const query = `
-    SELECT 
-      c.client_id,
-      c.client_name,
-      c.sector,
-      c.category,
-      c.account_manager_id,
-      c.entry_date,
-      c.created_at,
-      c.updated_at,
-      sd.staff_name AS account_manager_name,
-      COUNT(DISTINCT p.project_id) AS project_count
-    FROM clients c
-    INNER JOIN staff_details sd ON c.account_manager_id = sd.staff_id
-    LEFT JOIN projects p ON c.client_id = p.client_id
-    LEFT JOIN timesheets t ON c.client_id = t.client_id
-    GROUP BY 
-      c.client_id,
-      c.client_name,
-      c.sector,
-      c.category,
-      c.account_manager_id,
-      c.entry_date,
-      c.created_at,
-      c.updated_at,
-      sd.staff_name
-    ORDER BY c.client_name
-  `;
-
-  const result = await pool.query(query);
+  const result = await pool.query(CLIENT_QUERIES.getAllClients);
   return result.rows;
 };
 
@@ -67,36 +39,7 @@ export const getAllClients = async (): Promise<ClientWithDetails[]> => {
 export const getClientById = async (
   clientId: number,
 ): Promise<ClientWithDetails | null> => {
-  const query = `
-    SELECT 
-      c.client_id,
-      c.client_name,
-      c.sector,
-      c.category,
-      c.account_manager_id,
-      c.entry_date,
-      c.created_at,
-      c.updated_at,
-      sd.staff_name AS account_manager_name,
-      COUNT(DISTINCT p.project_id) AS project_count
-    FROM clients c
-    INNER JOIN staff_details sd ON c.account_manager_id = sd.staff_id
-    LEFT JOIN projects p ON c.client_id = p.client_id
-    LEFT JOIN timesheets t ON c.client_id = t.client_id
-    WHERE c.client_id = $1
-    GROUP BY 
-      c.client_id,
-      c.client_name,
-      c.sector,
-      c.category,
-      c.account_manager_id,
-      c.entry_date,
-      c.created_at,
-      c.updated_at,
-      sd.staff_name
-  `;
-
-  const result = await pool.query(query, [clientId]);
+  const result = await pool.query(CLIENT_QUERIES.getClientById, [clientId]);
   return result.rows.length > 0 ? result.rows[0] : null;
 };
 
@@ -127,31 +70,21 @@ export const createClient = async (clientData: Client): Promise<Client> => {
 
   // Verify account manager exists
   const managerCheck = await pool.query(
-    "SELECT staff_id FROM staff_details WHERE staff_id = $1",
+    CLIENT_QUERIES.checkAccountManagerExists,
     [account_manager_id],
   );
-
   if (managerCheck.rows.length === 0) {
     throw new ApiError(400, "Account manager ID does not exist");
   }
 
-  const query = `
-    INSERT INTO clients (
-      client_name, sector, category, account_manager_id, entry_date
-    )
-    VALUES ($1, $2, $3, $4, $5)
-    RETURNING *
-  `;
-
-  const values = [
+  const result = await pool.query(CLIENT_QUERIES.createClient, [
     client_name,
     sector,
     category,
     account_manager_id,
     entry_date || new Date().toISOString().split("T")[0],
-  ];
+  ]);
 
-  const result = await pool.query(query, values);
   return result.rows[0];
 };
 
@@ -193,10 +126,9 @@ export const updateClient = async (
   // Verify account manager if provided
   if (clientData.account_manager_id) {
     const managerCheck = await pool.query(
-      "SELECT staff_id FROM staff_details WHERE staff_id = $1",
+      CLIENT_QUERIES.checkAccountManagerExists,
       [clientData.account_manager_id],
     );
-
     if (managerCheck.rows.length === 0) {
       throw new ApiError(400, "Account manager ID does not exist");
     }
@@ -221,14 +153,14 @@ export const updateClient = async (
 
   values.push(clientId);
 
-  const query = `
-    UPDATE clients 
+  const updateQuery = `
+    UPDATE clients
     SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
     WHERE client_id = $${paramCount}
     RETURNING *
   `;
 
-  const result = await pool.query(query, values);
+  const result = await pool.query(updateQuery, values);
   return result.rows[0];
 };
 
@@ -237,11 +169,9 @@ export const updateClient = async (
  */
 export const deleteClient = async (clientId: number): Promise<boolean> => {
   // Check if client has projects
-  const projectCheck = await pool.query(
-    "SELECT COUNT(*) FROM projects WHERE client_id = $1",
-    [clientId],
-  );
-
+  const projectCheck = await pool.query(CLIENT_QUERIES.checkClientHasProjects, [
+    clientId,
+  ]);
   if (parseInt(projectCheck.rows[0].count) > 0) {
     throw new ApiError(
       400,
@@ -251,10 +181,9 @@ export const deleteClient = async (clientId: number): Promise<boolean> => {
 
   // Check if client has timesheets
   const timesheetCheck = await pool.query(
-    "SELECT COUNT(*) FROM timesheets WHERE client_id = $1",
+    CLIENT_QUERIES.checkClientHasTimesheets,
     [clientId],
   );
-
   if (parseInt(timesheetCheck.rows[0].count) > 0) {
     throw new ApiError(
       400,
@@ -262,11 +191,7 @@ export const deleteClient = async (clientId: number): Promise<boolean> => {
     );
   }
 
-  const result = await pool.query(
-    "DELETE FROM clients WHERE client_id = $1 RETURNING client_id",
-    [clientId],
-  );
-
+  const result = await pool.query(CLIENT_QUERIES.deleteClient, [clientId]);
   return result.rowCount !== null && result.rowCount > 0;
 };
 
@@ -276,32 +201,7 @@ export const deleteClient = async (clientId: number): Promise<boolean> => {
 export const getClientsBySector = async (
   sector: string,
 ): Promise<ClientWithDetails[]> => {
-  const query = `
-    SELECT 
-      c.client_id,
-      c.client_name,
-      c.sector,
-      c.category,
-      c.account_manager_id,
-      c.entry_date,
-      sd.staff_name AS account_manager_name,
-      COUNT(DISTINCT p.project_id) AS project_count
-    FROM clients c
-    INNER JOIN staff_details sd ON c.account_manager_id = sd.staff_id
-    LEFT JOIN projects p ON c.client_id = p.client_id
-    WHERE c.sector = $1
-    GROUP BY 
-      c.client_id,
-      c.client_name,
-      c.sector,
-      c.category,
-      c.account_manager_id,
-      c.entry_date,
-      sd.staff_name
-    ORDER BY c.client_name
-  `;
-
-  const result = await pool.query(query, [sector]);
+  const result = await pool.query(CLIENT_QUERIES.getClientsBySector, [sector]);
   return result.rows;
 };
 
@@ -311,32 +211,9 @@ export const getClientsBySector = async (
 export const getClientsByCategory = async (
   category: string,
 ): Promise<ClientWithDetails[]> => {
-  const query = `
-    SELECT 
-      c.client_id,
-      c.client_name,
-      c.sector,
-      c.category,
-      c.account_manager_id,
-      c.entry_date,
-      sd.staff_name AS account_manager_name,
-      COUNT(DISTINCT p.project_id) AS project_count
-    FROM clients c
-    INNER JOIN staff_details sd ON c.account_manager_id = sd.staff_id
-    LEFT JOIN projects p ON c.client_id = p.client_id
-    WHERE c.category = $1
-    GROUP BY 
-      c.client_id,
-      c.client_name,
-      c.sector,
-      c.category,
-      c.account_manager_id,
-      c.entry_date,
-      sd.staff_name
-    ORDER BY c.client_name
-  `;
-
-  const result = await pool.query(query, [category]);
+  const result = await pool.query(CLIENT_QUERIES.getClientsByCategory, [
+    category,
+  ]);
   return result.rows;
 };
 
@@ -344,26 +221,6 @@ export const getClientsByCategory = async (
  * Get client projects
  */
 export const getClientProjects = async (clientId: number): Promise<any[]> => {
-  const query = `
-    SELECT 
-      p.project_id,
-      p.project_name,
-      p.start_date,
-      p.end_date,
-      p.cluster,
-      COUNT(DISTINCT t.staff_id) AS staff_count
-    FROM projects p
-    LEFT JOIN timesheets t ON p.project_id = t.project_id
-    WHERE p.client_id = $1
-    GROUP BY 
-      p.project_id,
-      p.project_name,
-      p.start_date,
-      p.end_date,
-      p.cluster
-    ORDER BY p.start_date DESC
-  `;
-
-  const result = await pool.query(query, [clientId]);
+  const result = await pool.query(CLIENT_QUERIES.getClientProjects, [clientId]);
   return result.rows;
 };

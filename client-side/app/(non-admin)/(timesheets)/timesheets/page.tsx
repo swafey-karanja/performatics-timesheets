@@ -1,19 +1,29 @@
 "use client";
 
-import React, { useState } from "react";
+import  { useState } from "react";
 import Button from "@mui/material/Button";
 import AddIcon from "@mui/icons-material/Add";
-import DataTable from "@/components/DataTable";
 import CreateTimesheetModal from "@/components/CreateTimesheetModal";
 import ViewTimesheetModal from "@/components/ViewTimesheetModal";
 import { TimesheetRow } from "@/types/timesheets.types";
 import EditTimesheetModal from "@/components/EditTimesheetModal";
+import TimesheetsTable, { LoggedInAccount } from "@/components/TimesheetsTable";
 
 const TimesheetsPage = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [viewTimesheet, setViewTimesheet] = useState<TimesheetRow | null>(null);
   const [editTimesheet, setEditTimesheet] = useState<TimesheetRow | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
+
+  // ── Auth ────────────────────────────────────────────────────────────────────
+    const [account] = useState<LoggedInAccount | null>(() => {
+      try {
+        const raw = localStorage.getItem("account");
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    });
 
   return (
     <div className="flex flex-col gap-8">
@@ -60,10 +70,11 @@ const TimesheetsPage = () => {
       />
 
       {/* Table — onView opens the view modal */}
-      <DataTable
+      <TimesheetsTable
         onView={(ts) => setViewTimesheet(ts)}
         onEdit={(ts) => setEditTimesheet(ts)}
         refetchKey={refetchKey}
+        account={account}
       />
     </div>
   );

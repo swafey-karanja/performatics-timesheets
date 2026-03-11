@@ -33,7 +33,7 @@ export const STAFF_DISTRIBUTION_DATA = [
 ];
 
 interface EmployeeDistributionProps {
-  selectedStaffId: number;
+  selectedStaffId: number | null;
 }
 
 const EmployeeDistribution = ({ selectedStaffId }: EmployeeDistributionProps) => {

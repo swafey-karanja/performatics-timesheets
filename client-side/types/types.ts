@@ -175,3 +175,39 @@ export interface LoginResponse {
     tokens: AuthTokens;
   };
 }
+
+export interface Staff {
+  staff_id: number;
+  staff_name: string;
+  work_type: "Employment" | "Consultancy" | "Internship";
+  staff_role: string;
+  gender: string;
+  personal_email: string;
+  phone_number: string;
+  date_joined: string;
+  department_id: number;
+  department_name?: string;
+  account_id?: number;
+  username?: string;
+  work_email?: string;
+  status?: "Active" | "Suspended";
+}
+
+export type AccountStatus = "Active" | "Suspended";
+export type AccountRole = "Admin" | "Manager" | "Staff";
+
+export interface StaffAccount {
+  account_id: number;
+  staff_id: number;
+  staff_name: string;
+  staff_role: string;
+  username: string;
+  work_email: string;
+  status: AccountStatus;
+  role: AccountRole;
+  department_id: number | null;
+  department_name: string | null;
+  date_registered: string;
+  created_at: string;
+  updated_at: string;
+}

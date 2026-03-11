@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import AppModal from "@/components/ui/Modal";
+import AppModal from "@/components/common/Modal";
 import { TimesheetRow } from "@/types/timesheets.types";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";

@@ -1,10 +1,14 @@
+import bcrypt from "bcryptjs";
 import { pool } from "../config/database";
 import { ApiError } from "../middleware";
+import { STAFF_QUERIES } from "../queries/staff.queries";
 
-/**
- * Staff Service
- * Contains business logic for staff operations
- */
+const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type AccountStatus = "Active" | "Suspended";
+export type AccountRole = "Admin" | "Manager" | "Staff";
 
 export interface StaffDetails {
   staff_id?: number;
@@ -21,38 +25,51 @@ export interface StaffWithAccount extends StaffDetails {
   account_id?: number;
   username?: string;
   work_email?: string;
-  status?: "Active" | "Suspended";
+  status?: AccountStatus;
+  role?: AccountRole;
   department_id?: number;
   department_name?: string;
 }
 
+export interface StaffAccount {
+  account_id: number;
+  staff_id: number;
+  staff_name: string;
+  staff_role: string;
+  username: string;
+  work_email: string;
+  status: AccountStatus;
+  role: AccountRole;
+  department_id: number | null;
+  department_name: string | null;
+  date_registered: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateAccountInput {
+  staff_id: number;
+  username: string;
+  work_email: string;
+  password: string;
+  status?: AccountStatus;
+  role?: AccountRole;
+  department_id?: number | null;
+}
+
+export interface UpdateAccountInput {
+  username?: string;
+  work_email?: string;
+  department_id?: number | null;
+}
+
+// ─── Staff Details ────────────────────────────────────────────────────────────
+
 /**
  * Get all staff members with their account details
  */
-export const getAllStaff = async (): Promise<StaffWithAccount[]> => {
-  const query = `
-    SELECT 
-      sd.staff_id,
-      sd.staff_name,
-      sd.work_type,
-      sd.staff_role,
-      sd.gender,
-      sd.personal_email,
-      sd.phone_number,
-      sd.date_joined,
-      sa.account_id,
-      sa.username,
-      sa.work_email,
-      sa.status,
-      sa.department_id,
-      d.department_name
-    FROM staff_details sd
-    LEFT JOIN staff_accounts sa ON sd.staff_id = sa.staff_id
-    LEFT JOIN departments d ON sa.department_id = d.department_id
-    ORDER BY sd.staff_id DESC
-  `;
-
-  const result = await pool.query(query);
+export const getAllStaffDetails = async (): Promise<StaffWithAccount[]> => {
+  const result = await pool.query(STAFF_QUERIES.getAllStaff);
   return result.rows;
 };
 
@@ -62,30 +79,8 @@ export const getAllStaff = async (): Promise<StaffWithAccount[]> => {
 export const getStaffById = async (
   staffId: number,
 ): Promise<StaffWithAccount | null> => {
-  const query = `
-    SELECT 
-      sd.staff_id,
-      sd.staff_name,
-      sd.work_type,
-      sd.staff_role,
-      sd.gender,
-      sd.personal_email,
-      sd.phone_number,
-      sd.date_joined,
-      sa.account_id,
-      sa.username,
-      sa.work_email,
-      sa.status,
-      sa.department_id,
-      d.department_name
-    FROM staff_details sd
-    LEFT JOIN staff_accounts sa ON sd.staff_id = sa.staff_id
-    LEFT JOIN departments d ON sa.department_id = d.department_id
-    WHERE sd.staff_id = $1
-  `;
-
-  const result = await pool.query(query, [staffId]);
-  return result.rows.length > 0 ? result.rows[0] : null;
+  const result = await pool.query(STAFF_QUERIES.getStaffById, [staffId]);
+  return result.rows[0] ?? null;
 };
 
 /**
@@ -104,7 +99,6 @@ export const createStaff = async (
     date_joined,
   } = staffData;
 
-  // Validate work type
   const validWorkTypes = ["Employment", "Consultancy", "Internship"];
   if (!validWorkTypes.includes(work_type)) {
     throw new ApiError(
@@ -113,26 +107,14 @@ export const createStaff = async (
     );
   }
 
-  // Check if email already exists
-  const emailCheck = await pool.query(
-    "SELECT staff_id FROM staff_details WHERE personal_email = $1",
-    [personal_email],
-  );
-
+  const emailCheck = await pool.query(STAFF_QUERIES.checkEmailExists, [
+    personal_email,
+  ]);
   if (emailCheck.rows.length > 0) {
-    throw new ApiError(400, "Email already exists");
+    throw new ApiError(400, "Personal email already exists");
   }
 
-  const query = `
-    INSERT INTO staff_details (
-      staff_name, work_type, staff_role, gender, 
-      personal_email, phone_number, date_joined
-    )
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
-    RETURNING *
-  `;
-
-  const values = [
+  const result = await pool.query(STAFF_QUERIES.createStaff, [
     staff_name,
     work_type,
     staff_role,
@@ -140,26 +122,21 @@ export const createStaff = async (
     personal_email,
     phone_number || null,
     date_joined,
-  ];
+  ]);
 
-  const result = await pool.query(query, values);
   return result.rows[0];
 };
 
 /**
- * Update staff member
+ * Update staff member details
  */
 export const updateStaff = async (
   staffId: number,
   staffData: Partial<StaffDetails>,
 ): Promise<StaffDetails | null> => {
-  // Check if staff exists
   const existingStaff = await getStaffById(staffId);
-  if (!existingStaff) {
-    return null;
-  }
+  if (!existingStaff) return null;
 
-  // Build dynamic update query
   const updateFields: string[] = [];
   const values: any[] = [];
   let paramCount = 1;
@@ -178,27 +155,23 @@ export const updateStaff = async (
 
   values.push(staffId);
 
-  const query = `
-    UPDATE staff_details 
+  const updateQuery = `
+    UPDATE staff_details
     SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
     WHERE staff_id = $${paramCount}
     RETURNING *
   `;
 
-  const result = await pool.query(query, values);
+  const result = await pool.query(updateQuery, values);
   return result.rows[0];
 };
 
 /**
- * Delete staff member
+ * Delete a staff member (cascades to their account via FK)
  */
 export const deleteStaff = async (staffId: number): Promise<boolean> => {
-  const result = await pool.query(
-    "DELETE FROM staff_details WHERE staff_id = $1 RETURNING staff_id",
-    [staffId],
-  );
-
-  return result.rowCount !== null && result.rowCount > 0;
+  const result = await pool.query(STAFF_QUERIES.deleteStaff, [staffId]);
+  return (result.rowCount ?? 0) > 0;
 };
 
 /**
@@ -207,26 +180,274 @@ export const deleteStaff = async (staffId: number): Promise<boolean> => {
 export const getStaffByWorkType = async (
   workType: string,
 ): Promise<StaffWithAccount[]> => {
-  const query = `
-    SELECT 
-      sd.staff_id,
-      sd.staff_name,
-      sd.work_type,
-      sd.staff_role,
-      sd.gender,
-      sd.personal_email,
-      sd.phone_number,
-      sd.date_joined,
-      sa.account_id,
-      sa.username,
-      sa.work_email,
-      sa.status
-    FROM staff_details sd
-    LEFT JOIN staff_accounts sa ON sd.staff_id = sa.staff_id
-    WHERE sd.work_type = $1
-    ORDER BY sd.staff_id DESC
+  const result = await pool.query(STAFF_QUERIES.getStaffByWorkType, [workType]);
+  return result.rows;
+};
+
+// ─── Staff Accounts ───────────────────────────────────────────────────────────
+
+/**
+ * Get all staff accounts
+ */
+export const getAllAccounts = async (): Promise<StaffAccount[]> => {
+  const result = await pool.query(STAFF_QUERIES.getAllAccounts);
+  return result.rows;
+};
+
+/**
+ * Get a single account by its ID
+ */
+export const getAccountById = async (
+  accountId: number,
+): Promise<StaffAccount | null> => {
+  const result = await pool.query(STAFF_QUERIES.getAccountById, [accountId]);
+  return result.rows[0] ?? null;
+};
+
+/**
+ * Get the account linked to a staff member
+ */
+export const getAccountByStaffId = async (
+  staffId: number,
+): Promise<StaffAccount | null> => {
+  const result = await pool.query(STAFF_QUERIES.getAccountByStaffId, [staffId]);
+  return result.rows[0] ?? null;
+};
+
+/**
+ * Create a new staff account (hashes the password before storing)
+ */
+export const createAccount = async (
+  input: CreateAccountInput,
+): Promise<StaffAccount> => {
+  const {
+    staff_id,
+    username,
+    work_email,
+    password,
+    status = "Active",
+    role = "Staff",
+    department_id = null,
+  } = input;
+
+  // Verify the staff member exists
+  const staffCheck = await pool.query(STAFF_QUERIES.checkStaffExists, [
+    staff_id,
+  ]);
+  if (staffCheck.rows.length === 0) {
+    throw new ApiError(404, `Staff member with ID ${staff_id} not found`);
+  }
+
+  // One staff member, one account
+  const existingAccount = await pool.query(
+    STAFF_QUERIES.checkAccountExistsForStaff,
+    [staff_id],
+  );
+  if (existingAccount.rows.length > 0) {
+    throw new ApiError(
+      409,
+      `Staff member with ID ${staff_id} already has an account`,
+    );
+  }
+
+  // Uniqueness checks
+  const usernameCheck = await pool.query(STAFF_QUERIES.checkUsernameExists, [
+    username,
+  ]);
+  if (usernameCheck.rows.length > 0) {
+    throw new ApiError(409, "Username is already taken");
+  }
+
+  const emailCheck = await pool.query(STAFF_QUERIES.checkWorkEmailExists, [
+    work_email,
+  ]);
+  if (emailCheck.rows.length > 0) {
+    throw new ApiError(409, "Work email is already registered");
+  }
+
+  // Validate department if provided
+  if (department_id !== null) {
+    const deptCheck = await pool.query(STAFF_QUERIES.checkDepartmentExists, [
+      department_id,
+    ]);
+    if (deptCheck.rows.length === 0) {
+      throw new ApiError(400, `Department with ID ${department_id} not found`);
+    }
+  }
+
+  const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+  const result = await pool.query(STAFF_QUERIES.createAccount, [
+    staff_id,
+    username,
+    work_email,
+    password_hash,
+    status,
+    role,
+    department_id,
+  ]);
+
+  return result.rows[0];
+};
+
+/**
+ * Update general account fields (username, work_email, department_id).
+ * Status, role, and password each have dedicated functions below.
+ */
+export const updateAccount = async (
+  accountId: number,
+  data: UpdateAccountInput,
+): Promise<StaffAccount | null> => {
+  const existing = await getAccountById(accountId);
+  if (!existing) return null;
+
+  if (data.username) {
+    const check = await pool.query(STAFF_QUERIES.checkUsernameExistsExcluding, [
+      data.username,
+      accountId,
+    ]);
+    if (check.rows.length > 0) {
+      throw new ApiError(409, "Username is already taken");
+    }
+  }
+
+  if (data.work_email) {
+    const check = await pool.query(
+      STAFF_QUERIES.checkWorkEmailExistsExcluding,
+      [data.work_email, accountId],
+    );
+    if (check.rows.length > 0) {
+      throw new ApiError(409, "Work email is already registered");
+    }
+  }
+
+  if (data.department_id !== undefined && data.department_id !== null) {
+    const deptCheck = await pool.query(STAFF_QUERIES.checkDepartmentExists, [
+      data.department_id,
+    ]);
+    if (deptCheck.rows.length === 0) {
+      throw new ApiError(
+        400,
+        `Department with ID ${data.department_id} not found`,
+      );
+    }
+  }
+
+  const updateFields: string[] = [];
+  const values: any[] = [];
+  let paramCount = 1;
+
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== undefined) {
+      updateFields.push(`${key} = $${paramCount}`);
+      values.push(value);
+      paramCount++;
+    }
+  });
+
+  if (updateFields.length === 0) {
+    throw new ApiError(400, "No fields to update");
+  }
+
+  values.push(accountId);
+
+  const updateQuery = `
+    UPDATE staff_accounts
+    SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
+    WHERE account_id = $${paramCount}
+    RETURNING
+      account_id, staff_id, username, work_email,
+      status, role, department_id, date_registered, created_at, updated_at
   `;
 
-  const result = await pool.query(query, [workType]);
-  return result.rows;
+  const result = await pool.query(updateQuery, values);
+  return result.rows[0];
+};
+
+/**
+ * Update an account's status (Active / Suspended)
+ */
+export const updateAccountStatus = async (
+  accountId: number,
+  status: AccountStatus,
+): Promise<StaffAccount | null> => {
+  const existing = await getAccountById(accountId);
+  if (!existing) return null;
+
+  const validStatuses: AccountStatus[] = ["Active", "Suspended"];
+  if (!validStatuses.includes(status)) {
+    throw new ApiError(
+      400,
+      `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
+    );
+  }
+
+  const result = await pool.query(STAFF_QUERIES.updateAccountStatus, [
+    status,
+    accountId,
+  ]);
+  return result.rows[0];
+};
+
+/**
+ * Update an account's role (Admin / Manager / Staff)
+ */
+export const updateAccountRole = async (
+  accountId: number,
+  role: AccountRole,
+): Promise<StaffAccount | null> => {
+  const existing = await getAccountById(accountId);
+  if (!existing) return null;
+
+  const validRoles: AccountRole[] = ["Admin", "Manager", "Staff"];
+  if (!validRoles.includes(role)) {
+    throw new ApiError(
+      400,
+      `Invalid role. Must be one of: ${validRoles.join(", ")}`,
+    );
+  }
+
+  const result = await pool.query(STAFF_QUERIES.updateAccountRole, [
+    role,
+    accountId,
+  ]);
+  return result.rows[0];
+};
+
+/**
+ * Change the password for an account.
+ * Verifies the current password before applying the update.
+ */
+export const updateAccountPassword = async (
+  accountId: number,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> => {
+  const hashResult = await pool.query(STAFF_QUERIES.getAccountPasswordHash, [
+    accountId,
+  ]);
+
+  if (hashResult.rows.length === 0) {
+    throw new ApiError(404, `Account with ID ${accountId} not found`);
+  }
+
+  const isMatch = await bcrypt.compare(
+    currentPassword,
+    hashResult.rows[0].password_hash,
+  );
+  if (!isMatch) {
+    throw new ApiError(400, "Current password is incorrect");
+  }
+
+  const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+
+  await pool.query(STAFF_QUERIES.updateAccountPassword, [newHash, accountId]);
+};
+
+/**
+ * Delete a staff account (does not delete the staff_details row)
+ */
+export const deleteAccount = async (accountId: number): Promise<boolean> => {
+  const result = await pool.query(STAFF_QUERIES.deleteAccount, [accountId]);
+  return (result.rowCount ?? 0) > 0;
 };

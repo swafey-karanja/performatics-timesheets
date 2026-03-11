@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Dropdown } from "../dropdown/Dropdown";
 import { DropdownItem } from "../dropdown/DropdownItem";
 import { useLogout } from "@/hooks/useAuth";
@@ -25,7 +25,23 @@ interface UserAccount {
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
 
-  const user: UserAccount = localStorage.getItem("account") ? JSON.parse(localStorage.getItem("account") as string) : null;
+  // ── Auth ────────────────────────────────────────────────────────────────────
+    // Start as null on both server and client so the first render matches,
+    // then populate from localStorage after hydration is complete.
+    const [account, setAccount] = useState<UserAccount | null>(null);
+  
+    useEffect(() => {
+      try {
+        const raw = localStorage.getItem("account");
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setAccount(raw ? JSON.parse(raw) : null);
+      } catch {
+        setAccount(null);
+      }
+    }, []);
+  
+    // const isPrivileged =
+    //   account?.role === "Admin" || account?.role === "Manager";
 
   const { handleLogout } = useLogout();
   const router = useRouter();
@@ -45,8 +61,8 @@ export default function UserDropdown() {
   }
 
   // Display username or fallback
-  const displayName = user?.staff_name || user?.username || "User";
-  const displayEmail = user?.work_email || "user@example.com";
+  const displayName = account?.staff_name || account?.username || "account";
+  const displayEmail = account?.work_email || "user@example.com";
 
   return (
     <div className="relative">
@@ -84,9 +100,9 @@ export default function UserDropdown() {
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
             {displayEmail}
           </span>
-          {user?.role && (
+          {account?.role && (
             <span className="mt-1 inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-              {user.role}
+              {account.role}
             </span>
           )}
         </div>

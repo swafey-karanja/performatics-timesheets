@@ -1,26 +1,25 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import GroupsIcon from "@mui/icons-material/Groups";
 import FolderIcon from "@mui/icons-material/Folder";
-import DescriptionIcon from "@mui/icons-material/Description";
-import List from "@mui/material/List";
-import ExtensionIcon from "@mui/icons-material/Extension";
-import StarIcon from "@mui/icons-material/Star";
 import PersonIcon from "@mui/icons-material/Person";
 import SignalCellularAltIcon from "@mui/icons-material/SignalCellularAlt";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
-import SpaceDashboardIcon from '@mui/icons-material/SpaceDashboard';
+import SpaceDashboardIcon from "@mui/icons-material/SpaceDashboard";
+import { LoggedInAccount } from "@/components/TimesheetsTable";
 
 type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
+  /** If true, only Admin and Manager roles can see this item */
+  privileged?: boolean;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
@@ -40,42 +39,18 @@ const navItems: NavItem[] = [
   },
   {
     icon: <GroupsIcon />,
-    name: "Candidates",
-    path: "/candidates",
+    name: "Staff",
+    privileged: true, // Admin and Manager only
+    subItems: [
+      { name: "Staff Details", path: "/staff-details" },
+      { name: "Staff Accounts", path: "/staff-accounts" },
+    ],
   },
   {
     icon: <FolderIcon />,
     name: "Jobs",
     path: "/jobs",
-  },
-  {
-    icon: <DescriptionIcon />,
-    name: "Applications",
-    path: "/applications",
-  },
-  {
-    icon: <List />,
-    name: "Invoices",
-    path: "/invoices",
-  },
-];
-
-const aiItems: NavItem[] = [
-  {
-    icon: <ExtensionIcon />,
-    name: "Intergrations",
-    path: "#",
-  },
-  {
-    icon: <StarIcon />,
-    name: "Features",
-    path: "#",
-  },
-  {
-    icon: <PersonIcon />,
-    name: "My profile",
-    path: "#",
-  },
+  }
 ];
 
 const analyticsItems: NavItem[] = [
@@ -88,29 +63,40 @@ const analyticsItems: NavItem[] = [
 
 const othersItems: NavItem[] = [
   {
-    icon: <ExtensionIcon />,
-    name: "Intergrations",
-    path: "/integrations",
-  },
-  {
-    icon: <StarIcon />,
-    name: "Features",
-    path: "/features",
-  },
-  {
     icon: <PersonIcon />,
     name: "My profile",
     path: "/profile",
-  },
+  }
 ];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
 
+  // ── Auth ────────────────────────────────────────────────────────────────────
+  // Start as null on both server and client so the first render matches,
+  // then populate from localStorage after hydration is complete.
+  const [account, setAccount] = useState<LoggedInAccount | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("account");
+      setAccount(raw ? JSON.parse(raw) : null);
+    } catch {
+      setAccount(null);
+    }
+  }, []);
+
+  const isPrivileged =
+    account?.role === "Admin" || account?.role === "Manager";
+
+  // ── Filter items based on role ──────────────────────────────────────────────
+  const filterItems = (items: NavItem[]) =>
+    items.filter((item) => !item.privileged || isPrivileged);
+
   const renderMenuItems = (
     navItems: NavItem[],
-    menuType: "dashboard" | "main" | "aiFeatures" | "analytics" | "others",
+    menuType: "dashboard" | "hr" | "analytics" | "others",
   ) => (
     <ul className="flex flex-col gap-4">
       {navItems.map((nav, index) => (
@@ -234,70 +220,65 @@ const AppSidebar: React.FC = () => {
     </ul>
   );
 
-  // const [openSubmenu, setOpenSubmenu] = useState<{
-  //   type: "dashboard" | "main" | "aiFeatures" | "analytics" | "others";
-  //   index: number;
-  // } | null>(null);
-
   const [manualSubmenu, setManualSubmenu] = useState<{
-  type: "dashboard" | "main" | "aiFeatures" | "analytics" | "others";
-  index: number;
-} | null>(null);
+    type: "dashboard" | "hr" | "analytics" | "others";
+    index: number;
+  } | null>(null);
 
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
     {},
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // const isActive = (path: string) => path === pathname;
   const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
   const menuSections: {
-  type: "dashboard" | "main" | "aiFeatures" | "analytics" | "others";
-  items: NavItem[];
-}[] = [
-  { type: "dashboard", items: dashBoardItems },
-  { type: "main", items: navItems },
-  { type: "aiFeatures", items: aiItems },
-  { type: "analytics", items: analyticsItems },
-  { type: "others", items: othersItems },
-];
+    type: "dashboard" | "hr" | "analytics" | "others";
+    items: NavItem[];
+  }[] = useMemo(
+    () => [
+      { type: "dashboard", items: dashBoardItems },
+      { type: "hr", items: filterItems(navItems) },
+      { type: "analytics", items: analyticsItems },
+      { type: "others", items: othersItems },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isPrivileged],
+  );
 
-const openSubmenu = (() => {
-  for (const { type, items } of menuSections) {
-    for (let index = 0; index < items.length; index++) {
-      if (items[index].subItems?.some((s) => isActive(s.path))) {
-        return { type, index };
+  const openSubmenu = useMemo(() => {
+    for (const { type, items } of menuSections) {
+      for (let index = 0; index < items.length; index++) {
+        if (items[index].subItems?.some((s) => isActive(s.path))) {
+          return { type, index };
+        }
       }
     }
-  }
-  return manualSubmenu;
-})();
+    return manualSubmenu;
+  }, [menuSections, manualSubmenu, isActive]);
 
   useEffect(() => {
-    // Set the height of the submenu items when the submenu is opened
     if (openSubmenu !== null) {
       const key = `${openSubmenu.type}-${openSubmenu.index}`;
-      if (subMenuRefs.current[key]) {
-        setSubMenuHeight((prevHeights) => ({
-          ...prevHeights,
-          [key]: subMenuRefs.current[key]?.scrollHeight || 0,
-        }));
-      }
+      const newHeight = subMenuRefs.current[key]?.scrollHeight || 0;
+      setSubMenuHeight((prev) => {
+        if (prev[key] === newHeight) return prev;
+        return { ...prev, [key]: newHeight };
+      });
     }
   }, [openSubmenu]);
 
   const handleSubmenuToggle = (
-  index: number,
-  menuType: "dashboard" | "main" | "aiFeatures" | "analytics" | "others",
-) => {
-  setManualSubmenu((prev) => {
-    if (prev && prev.type === menuType && prev.index === index) {
-      return null;
-    }
-    return { type: menuType, index };
-  });
-};
+    index: number,
+    menuType: "dashboard" | "hr" | "analytics" | "others",
+  ) => {
+    setManualSubmenu((prev) => {
+      if (prev && prev.type === menuType && prev.index === index) {
+        return null;
+      }
+      return { type: menuType, index };
+    });
+  };
 
   return (
     <aside
@@ -324,14 +305,14 @@ const openSubmenu = (() => {
             <>
               <Image
                 className="dark:hidden"
-                 src="/Performatics-Logo-Black.png"
+                src="/Performatics-Logo-Black.png"
                 alt="Logo"
                 width={150}
                 height={40}
               />
               <Image
                 className="hidden dark:block"
-                 src="/Performatics-Logo-White.png"
+                src="/Performatics-Logo-White.png"
                 alt="Logo"
                 width={150}
                 height={40}
@@ -339,22 +320,20 @@ const openSubmenu = (() => {
             </>
           ) : (
             <>
-            
-            <Image
-               src="/Performatics-Logo-Black.png"
-               className="dark:hidden"
-              alt="Logo"
-              width={32}
-              height={32}
-            />
-
-             <Image
-               src="/Performatics-Logo-White.png"
-              alt="Logo"
-              width={32}
-              height={32}
-               className="hidden dark:block"
-            />
+              <Image
+                src="/Performatics-Logo-Black.png"
+                className="dark:hidden"
+                alt="Logo"
+                width={32}
+                height={32}
+              />
+              <Image
+                src="/Performatics-Logo-White.png"
+                alt="Logo"
+                width={32}
+                height={32}
+                className="hidden dark:block"
+              />
             </>
           )}
         </Link>
@@ -376,7 +355,7 @@ const openSubmenu = (() => {
                   <MoreHorizIcon />
                 )}
               </h2>
-              {renderMenuItems(dashBoardItems, "dashboard")}
+              {renderMenuItems(filterItems(dashBoardItems), "dashboard")}
             </div>
             <div>
               <h2
@@ -387,12 +366,12 @@ const openSubmenu = (() => {
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Recruitment"
+                  "Performatics HR"
                 ) : (
                   <MoreHorizIcon />
                 )}
               </h2>
-              {renderMenuItems(navItems, "main")}
+              {renderMenuItems(filterItems(navItems), "hr")}
             </div>
 
             <div className="">
@@ -409,7 +388,7 @@ const openSubmenu = (() => {
                   <MoreHorizIcon />
                 )}
               </h2>
-              {renderMenuItems(analyticsItems, "analytics")}
+              {renderMenuItems(filterItems(analyticsItems), "analytics")}
             </div>
 
             <div className="">
@@ -426,11 +405,10 @@ const openSubmenu = (() => {
                   <MoreHorizIcon />
                 )}
               </h2>
-              {renderMenuItems(othersItems, "others")}
+              {renderMenuItems(filterItems(othersItems), "others")}
             </div>
           </div>
         </nav>
-        {/* {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null} */}
       </div>
     </aside>
   );
